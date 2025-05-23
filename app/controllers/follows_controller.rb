@@ -1,7 +1,7 @@
 class FollowsController < ApplicationController
   skip_before_action :verify_authenticity_token
   before_action :set_current_user
-  before_action :set_user_to_follow, only: [ :create, :destroy ]
+  before_action :set_user_to_follow, only: [ :follow, :unfollow ]
 
   # PUT /users/:id/follow
   def follow
