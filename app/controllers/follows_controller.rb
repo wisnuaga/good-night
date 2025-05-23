@@ -1,4 +1,4 @@
-class FollowersController < ApplicationController
+class FollowsController < ApplicationController
   skip_before_action :verify_authenticity_token
   before_action :set_current_user
   before_action :set_user_to_follow, only: [ :create, :destroy ]
@@ -9,10 +9,10 @@ class FollowersController < ApplicationController
       return render json: { error: "Cannot follow yourself" }, status: :bad_request
     end
 
-    follow = Follower.new(user: @user_to_follow, follower: @current_user)
+    follow = Follow.new(follower_id: @current_user.id, followed_id: @user_to_follow.id)
 
     if follow.save
-      render json: { message: "Followed user successfully" }
+      render json: { message: "Followed user successfully" }, status: :ok
     else
       render json: { errors: follow.errors.full_messages }, status: :unprocessable_entity
     end
@@ -20,13 +20,15 @@ class FollowersController < ApplicationController
 
   # DELETE /users/:id/unfollow
   def destroy
-    follow = Follower.find_by(user: @user_to_follow, follower: @current_user)
+    follow = Follow.find_by(follower_id: @current_user.id, followed_id: @user_to_follow.id)
 
-    if follow&.destroy
-      render json: { message: "Unfollowed user successfully" }
-    else
+    if follow.nil?
       render json: { error: "Follow relation not found" }, status: :not_found
+      return
     end
+
+    follow.destroy!
+    render json: { message: "Unfollowed user successfully" }, status: :ok
   end
 
   private

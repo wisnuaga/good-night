@@ -8,8 +8,8 @@ Rails.application.routes.draw do
 
   resources :users, only: [ :index, :show ]
 
-  put "users/:id/follow",   to: "followers#create",   as: :follow_user
-  put "users/:id/unfollow", to: "followers#destroy",  as: :unfollow_user
+  put "users/:id/follow",   to: "follows#create",   as: :follow_user
+  put "users/:id/unfollow", to: "follows#destroy",  as: :unfollow_user
 
   # Defines the root path route ("/")
   # root "posts#index"
