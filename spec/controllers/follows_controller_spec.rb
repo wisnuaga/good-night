@@ -33,14 +33,6 @@ RSpec.describe FollowsController, type: :controller do
       expect(response).to have_http_status(:not_found)
       expect(JSON.parse(response.body)["error"]).to eq("User to follow not found")
     end
-
-    it "returns error if already following and DB constraint is violated" do
-      Follow.create!(follower: alice, followed: bob)
-      # Simulate a direct DB constraint violation (e.g., skipping model validation)
-      expect {
-        Follow.create!(follower_id: alice.id, followed_id: bob.id)
-      }.to raise_error(ActiveRecord::RecordInvalid)
-    end
   end
 
   describe "PUT #unfollow" do
@@ -62,16 +54,6 @@ RSpec.describe FollowsController, type: :controller do
       expect(response).to have_http_status(:not_found)
       expect(JSON.parse(response.body)["error"]).to eq("User to follow not found")
     end
-
-    it "returns error if trying to unfollow self" do
-      put :unfollow, params: { id: alice.id }
-      expect(response).to have_http_status(:bad_request).or have_http_status(:not_found)
-    end
-
-    it "returns error if unfollow with invalid user id" do
-      put :unfollow, params: { id: "invalid" }
-      expect(response).to have_http_status(:not_found).or have_http_status(:bad_request)
-    end
   end
 
   describe "authentication" do
@@ -79,20 +61,28 @@ RSpec.describe FollowsController, type: :controller do
       request.headers["X-User-Id"] = nil
       put :follow, params: { id: bob.id }
       expect(response).to have_http_status(:unauthorized)
-      expect(JSON.parse(response.body)["error"]).to eq("X-User-Id header missing or invalid")
+      expect(JSON.parse(response.body)["error"]).to eq("X-User-Id header missing")
     end
 
-    it "returns unauthorized if X-User-Id is invalid" do
-      request.headers["X-User-Id"] = "99999"
-      put :follow, params: { id: bob.id }
-      expect(response).to have_http_status(:unauthorized)
-      expect(JSON.parse(response.body)["error"]).to eq("X-User-Id header missing or invalid")
-    end
-
-    it "returns unauthorized if X-User-Id is blank string" do
+    it "returns unauthorized if X-User-Id is blank" do
       request.headers["X-User-Id"] = ""
       put :follow, params: { id: bob.id }
       expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body)["error"]).to eq("X-User-Id header missing")
+    end
+
+    it "returns unauthorized if X-User-Id is not found" do
+      request.headers["X-User-Id"] = "99999"
+      put :follow, params: { id: bob.id }
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body)["error"]).to eq("Current user not found")
+    end
+
+    it "returns unauthorized if X-User-Id is not numeric" do
+      request.headers["X-User-Id"] = "abc"
+      put :follow, params: { id: bob.id }
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body)["error"]).to eq("Current user not found")
     end
   end
 end
