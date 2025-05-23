@@ -3,8 +3,8 @@ class FollowsController < ApplicationController
   before_action :set_current_user
   before_action :set_user_to_follow, only: [ :create, :destroy ]
 
-  # POST /users/:id/follow
-  def create
+  # PUT /users/:id/follow
+  def follow
     if @current_user.id == @user_to_follow.id
       return render json: { error: "Cannot follow yourself" }, status: :bad_request
     end
@@ -18,8 +18,8 @@ class FollowsController < ApplicationController
     end
   end
 
-  # DELETE /users/:id/unfollow
-  def destroy
+  # PUT /users/:id/unfollow
+  def unfollow
     follow = Follow.find_by(follower_id: @current_user.id, followed_id: @user_to_follow.id)
 
     if follow.nil?
