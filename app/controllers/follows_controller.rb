@@ -43,6 +43,9 @@ class FollowsController < ApplicationController
   end
 
   def set_user_to_follow
-    @user_to_follow = User.find(params[:id])
+    @user_to_follow = User.find_by(id: params[:id])
+    unless @user_to_follow
+      render json: { error: "User to follow not found" }, status: :not_found and return
+    end
   end
 end
