@@ -9,6 +9,5 @@ Rails.application.routes.draw do
   put "users/:id/follow",   to: "follows#follow",   as: :follow_user
   put "users/:id/unfollow", to: "follows#unfollow",  as: :unfollow_user
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  post "/sleep_records/clock_in", to: "sleep_record#clock_in", as: :clock_in
 end
