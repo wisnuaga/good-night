@@ -8,4 +8,6 @@ class User < ApplicationRecord
   # Users who follow me
   has_many :passive_follows, class_name: "Follow", foreign_key: "followed_id", dependent: :destroy
   has_many :followers, through: :passive_follows, source: :follower
+
+  has_many :sleep_records, dependent: :destroy
 end
