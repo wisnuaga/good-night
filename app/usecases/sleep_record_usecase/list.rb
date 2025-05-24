@@ -11,11 +11,7 @@ module SleepRecordUsecase
       follower_ids = get_follower_ids
       sleep_records = SleepRecord.where(user_id: follower_ids).order(clock_in: :desc)
 
-      if sleep_records.any?
-        success(sleep_records)
-      else
-        failure("No sleep records found")
-      end
+      success(sleep_records)
     end
 
     private
