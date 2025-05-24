@@ -33,15 +33,6 @@ class FollowsController < ApplicationController
 
   private
 
-  # TODO: Implement a proper authentication mechanism
-  def set_current_user
-    user_id = request.headers["X-User-Id"]
-    render json: { error: "X-User-Id header missing" }, status: :unauthorized and return unless user_id.present?
-
-    @current_user = User.find_by(id: user_id)
-    render json: { error: "Current user not found" }, status: :unauthorized and return if @current_user.nil?
-  end
-
   def set_user_to_follow
     @user_to_follow = User.find_by(id: params[:id])
     unless @user_to_follow
