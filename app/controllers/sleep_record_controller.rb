@@ -23,10 +23,13 @@ class SleepRecordController < ApplicationController
   end
 
   def index
-    follower_ids = @current_user.active_follows.pluck(:followed_id)
-    follower_ids << @current_user.id # Include self
-    sleep_records = SleepRecord.where(user_id: follower_ids).order(clock_in: :desc)
+    include_followers = params[:include_followers] == "true"
 
-    render json: sleep_records, status: :ok
+    result = SleepRecordUsecase::List.new(@current_user, include_followers: include_followers).call
+    if result.success?
+      render json: result.data, status: :ok
+    else
+      render json: { error: result.error }, status: :bad_request
+    end
   end
 end
