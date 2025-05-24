@@ -4,17 +4,11 @@ class SleepRecordController < ApplicationController
 
   # POST /sleep_records/clock_in
   def clock_in
-    # Check if an active session exists
-    active_session = @current_user.sleep_records.find_by(clock_out: nil)
-    if active_session
-      render json: { error: "You already have an active sleep session" }, status: :bad_request and return
-    end
-
-    sleep_record = @current_user.sleep_records.new(clock_in: Time.current)
-    if sleep_record.save
-      render json: sleep_record, status: :created
+    result = SleepRecordUsecase::ClockIn.new(@current_user).call
+    if result.success?
+      render json: result.sleep_record, status: :created
     else
-      render json: { errors: sleep_record.errors.full_messages }, status: :unprocessable_entity
+      render json: { error: result.error }, status: :bad_request
     end
   end
 
