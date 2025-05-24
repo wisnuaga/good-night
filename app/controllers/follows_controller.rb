@@ -38,4 +38,8 @@ class FollowsController < ApplicationController
       render json: { error: "User to follow not found" }, status: :not_found and return
     end
   end
+
+  def params
+    params.permit(:id).to_h.symbolize_keys.merge(user_id: params[:id])
+  end
 end
