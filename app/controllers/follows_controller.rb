@@ -5,22 +5,21 @@ class FollowsController < ApplicationController
 
   # PUT /users/:id/follow
   def follow
-    if @current_user.id == @user_to_follow.id
-      return render json: { error: "Cannot follow yourself" }, status: :bad_request
+    if @current_user.id == params[:id].to_i
+      render_result(
+        OpenStruct.new(success?: false, error: "Cannot follow yourself"),
+        :bad_request
+      )
+      return
     end
 
-    follow = Follow.new(follower_id: @current_user.id, followed_id: @user_to_follow.id)
-
-    if follow.save
-      render json: { message: "Followed user successfully" }, status: :ok
-    else
-      render json: { errors: follow.errors.full_messages }, status: :unprocessable_entity
-    end
+    result = FollowUsecase::Follow.new(@current_user, params[:id]).call
+    render_result(result, :created)
   end
 
   # PUT /users/:id/unfollow
   def unfollow
-    follow = Follow.find_by(follower_id: @current_user.id, followed_id: @user_to_follow.id)
+    follow = Follow.find_by(follower_id: @current_user.id, followee_id: @user_to_follow.id)
 
     if follow.nil?
       render json: { error: "Follow relation not found" }, status: :not_found
@@ -37,6 +36,14 @@ class FollowsController < ApplicationController
     @user_to_follow = User.find_by(id: params[:id])
     unless @user_to_follow
       render json: { error: "User to follow not found" }, status: :not_found and return
+    end
+  end
+
+  def render_result(result, success_status)
+    if result.success?
+      render json: result.data, status: success_status
+    else
+      render json: { error: result.error }, status: :bad_request
     end
   end
 end
