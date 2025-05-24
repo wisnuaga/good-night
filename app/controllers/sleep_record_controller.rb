@@ -14,16 +14,11 @@ class SleepRecordController < ApplicationController
 
   # PUT /sleep_records/clock_out
   def clock_out
-    sleep_record = @current_user.sleep_records.where(clock_out: nil).order(:clock_in).last
-    if sleep_record.nil?
-      return render json: { error: "No active sleep session found" }, status: :not_found
-    end
-
-    sleep_record.clock_out = Time.current
-    if sleep_record.save
-      render json: sleep_record, status: :ok
+    result = SleepRecordUsecase::ClockOut.new(@current_user).call
+    if result.success?
+      render json: result.sleep_record, status: :ok
     else
-      render json: { errors: sleep_record.errors.full_messages }, status: :unprocessable_entity
+      render json: { error: result.error }, status: :bad_request
     end
   end
 
