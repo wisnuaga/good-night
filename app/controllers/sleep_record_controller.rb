@@ -32,4 +32,12 @@ class SleepRecordController < ApplicationController
       render json: { errors: sleep_record.errors.full_messages }, status: :unprocessable_entity
     end
   end
+
+  def index
+    follower_ids = @current_user.active_follows.pluck(:followed_id)
+    follower_ids << @current_user.id # Include self
+    sleep_records = SleepRecord.where(user_id: follower_ids).order(clock_in: :desc)
+
+    render json: sleep_records, status: :ok
+  end
 end
