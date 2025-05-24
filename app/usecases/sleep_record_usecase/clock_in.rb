@@ -1,34 +1,25 @@
 require "ostruct"
 
 module SleepRecordUsecase
-  class ClockIn
+  class ClockIn < SleepRecordUsecase::Base
+    attr_reader :user, :sleep_record
     def initialize(user)
-      @user = user
+      super(user)
     end
 
     def call
       return failure("User not found") unless @user
 
-      active_session = @user.sleep_records.where(clock_out: nil).last
+      active_session = self.get_active_session
       return failure("You already have an active sleep session") if active_session
 
       record = @user.sleep_records.new(clock_in: Time.current)
 
       if record.save
-        success(record)
+        self.success(record)
       else
-        failure("Failed to create sleep record")
+        self.failure("Failed to create sleep record")
       end
-    end
-
-    private
-
-    def success(record)
-      OpenStruct.new(success?: true, sleep_record: record)
-    end
-
-    def failure(error_message)
-      OpenStruct.new(success?: false, error: error_message)
     end
   end
 end
