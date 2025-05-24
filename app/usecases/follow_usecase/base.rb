@@ -2,16 +2,18 @@ require "ostruct"
 
 module FollowUsecase
   class Base
-    def initialize(user)
+    def initialize(user, followee_id, follow_repository: FollowRepository.new)
       @user = user
+      @followee_id = followee_id
+      @follow_repository = follow_repository
     end
 
     private
 
     attr_reader :user
 
-    def get_followed_user
-      @followed_user ||= User.find_by(id: user.id)
+    def get_followee
+      @followee ||= User.find_by(id: @followee_id)
     end
 
     def success(record)
