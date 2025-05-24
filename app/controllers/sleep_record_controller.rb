@@ -17,7 +17,7 @@ class SleepRecordController < ApplicationController
   def index
     result = SleepRecordUsecase::List.new(
       @current_user,
-      include_followers: index_params[:include_followers]
+      include_followees: index_params[:include_followees]
     ).call
 
     render_result(result, :ok)
@@ -26,8 +26,8 @@ class SleepRecordController < ApplicationController
   private
 
   def index_params
-    params.permit(:include_followers).tap do |params|
-      params[:include_followers] = params[:include_followers] == "true"
+    params.permit(:include_followees).tap do |params|
+      params[:include_followees] = params[:include_followees] == "true"
     end
   end
 end
