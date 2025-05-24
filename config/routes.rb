@@ -10,4 +10,5 @@ Rails.application.routes.draw do
   put "users/:id/unfollow", to: "follows#unfollow",  as: :unfollow_user
 
   post "/sleep_records/clock_in", to: "sleep_record#clock_in", as: :clock_in
+  put "/sleep_records/clock_out", to: "sleep_record#clock_out", as: :clock_out
 end
