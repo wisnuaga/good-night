@@ -30,12 +30,4 @@ class SleepRecordController < ApplicationController
       params[:include_followers] = params[:include_followers] == "true"
     end
   end
-
-  def render_result(result, success_status)
-    if result.success?
-      render json: result.data, status: success_status
-    else
-      render json: { error: result.error }, status: :bad_request
-    end
-  end
 end

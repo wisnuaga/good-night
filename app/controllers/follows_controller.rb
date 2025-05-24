@@ -38,12 +38,4 @@ class FollowsController < ApplicationController
       render json: { error: "User to follow not found" }, status: :not_found and return
     end
   end
-
-  def render_result(result, success_status)
-    if result.success?
-      render json: result.data, status: success_status
-    else
-      render json: { error: result.error }, status: :bad_request
-    end
-  end
 end
