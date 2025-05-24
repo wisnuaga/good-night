@@ -11,7 +11,7 @@ module FollowUsecase
 
       follow = @follow_repository.create(follower: @user, followee: @followee)
       if follow.persisted?
-        success(follow)
+        success({ message: "Followed user successfully" })
       else
         failure(follow.errors.full_messages.join(", "))
       end
