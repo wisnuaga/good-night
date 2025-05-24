@@ -15,7 +15,7 @@ module SleepRecordUsecase
     end
 
     def success(record)
-      OpenStruct.new(success?: true, sleep_record: record)
+      OpenStruct.new(success?: true, data: record)
     end
 
     def failure(error_message)

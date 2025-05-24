@@ -6,7 +6,7 @@ class SleepRecordController < ApplicationController
   def clock_in
     result = SleepRecordUsecase::ClockIn.new(@current_user).call
     if result.success?
-      render json: result.sleep_record, status: :created
+      render json: result.data, status: :created
     else
       render json: { error: result.error }, status: :bad_request
     end
@@ -16,7 +16,7 @@ class SleepRecordController < ApplicationController
   def clock_out
     result = SleepRecordUsecase::ClockOut.new(@current_user).call
     if result.success?
-      render json: result.sleep_record, status: :ok
+      render json: result.data, status: :ok
     else
       render json: { error: result.error }, status: :bad_request
     end
