@@ -7,13 +7,12 @@ module SleepRecordUsecase
     end
 
     def call
-      user = get_user
-      return failure("User not found") unless user
+      return failure("User not found") unless @user
 
-      active_session = user.sleep_records.where(clock_out: nil).last
+      active_session = @user.sleep_records.where(clock_out: nil).last
       return failure("You already have an active sleep session") if active_session
 
-      record = user.sleep_records.new(clock_in: Time.current)
+      record = @user.sleep_records.new(clock_in: Time.current)
 
       if record.save
         success(record)
