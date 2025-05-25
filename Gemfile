@@ -36,6 +36,7 @@ gem "bootsnap", require: false
 
 gem "dotenv-rails", groups: [ :development, :test ]
 gem "pg"
+gem 'redis'
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
