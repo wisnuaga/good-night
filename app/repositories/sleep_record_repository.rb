@@ -32,6 +32,17 @@ class SleepRecordRepository
     end
   end
 
+  def list_fanout(user_id:)
+    key = feed_key(user_id: user_id)
+    ids = $redis.lrange(key, 0, FEED_LIST_LIMIT - 1).map(&:to_i)
+    return [] if ids.empty?
+
+    # Batch fetch sleep records ordered by ids as per Redis order
+    records = SleepRecord.where(id: ids).index_by(&:id)
+    # Return records in Redis list order
+    ids.map { |id| records[id] }.compact
+  end
+
   private
 
   def feed_key(user_id:)
