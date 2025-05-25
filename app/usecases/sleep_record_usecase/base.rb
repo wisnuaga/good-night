@@ -2,16 +2,17 @@ require "ostruct"
 
 module SleepRecordUsecase
   class Base
-    def initialize(user)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new)
       @user = user
+      @sleep_record_repository = sleep_record_repository
     end
 
     private
 
     attr_reader :user
 
-    def get_active_session
-      @user.sleep_records.where(clock_out: nil).order(:clock_in).last
+    def active_session
+      @active_session = @user.sleep_records.where(clock_out: nil).order(:clock_in).last
     end
 
     def success(record)
