@@ -9,14 +9,18 @@ module SleepRecordUsecase
 
     private
 
-    attr_reader :user, :sleep_record_repository
+    attr_reader :user, :sleep_record_repository, :session
 
-    def validate
-      raise UsecaseError::UserNotFoundError unless @user
+    def validate_user!
+      raise UsecaseError::UserNotFoundError unless user
     end
 
     def active_session
-      sleep_record_repository.find_active_by_user(user_id: @user.id)
+      sleep_record_repository.find_active_by_user(user_id: user.id)
+    end
+
+    def session
+      @session ||= active_session
     end
 
     def success(record)

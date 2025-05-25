@@ -8,15 +8,12 @@ module SleepRecordUsecase
     end
 
     def call
-      validate
+      validate_user!
+      validate_active_session!
 
-      @session.clock_out = @clock_out
+      session.clock_out = clock_out
 
-      if @session.save
-        success(@session)
-      else
-        failure("Failed to clock out")
-      end
+      session.save ? success(session) : failure("Failed to clock out")
     rescue UsecaseError::UserNotFoundError, UsecaseError::ActiveSleepSessionNotFound => e
       failure(e.message)
     rescue => e
@@ -25,10 +22,10 @@ module SleepRecordUsecase
 
     private
 
-    def validate
-      super
-      @session = active_session
-      raise UsecaseError::ActiveSleepSessionNotFound if @session.nil?
+    attr_reader :clock_out
+
+    def validate_active_session!
+      raise UsecaseError::ActiveSleepSessionNotFound if session.nil?
     end
   end
 end

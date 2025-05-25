@@ -6,12 +6,10 @@ module SleepRecordUsecase
     end
 
     def call
-      validate
+      validate_user!
 
-      sleep_records = @sleep_record_repository.list_by_user_ids(user_ids)
-
-      success({ data: sleep_records })
-      # TODO: add pagination
+      sleep_records = sleep_record_repository.list_by_user_ids(user_ids)
+      success({ data: sleep_records }) # TODO: add pagination
     rescue UsecaseError::UserNotFoundError => e
       failure(e.message)
     rescue => e
@@ -20,12 +18,12 @@ module SleepRecordUsecase
 
     private
 
-    def user_ids
-      return [ @user.id ] unless @include_followees
+    attr_reader :include_followees
 
-      followee_ids = @user.active_follows.pluck(:followee_id)
-      followee_ids << @user.id
-      followee_ids
+    def user_ids
+      return [ user.id ] unless include_followees
+
+      user.active_follows.pluck(:followee_id).tap { |ids| ids << user.id }
     end
   end
 end
