@@ -15,7 +15,7 @@ module SleepRecordUsecase
 
       if session.save
         # TODO: Move to background job
-
+        sleep_record_repository.fanout_to_followers(sleep_record: session, follower_ids: follower_ids)
 
         success(session)
       else
@@ -36,7 +36,7 @@ module SleepRecordUsecase
     end
 
     def follower_ids
-      followee_ids = follow_repository.list_followee_ids(user_id: user.id)
+      followee_ids = follow_repository.list_follower_ids(user_id: user.id)
       followee_ids << user.id
       followee_ids
     end
