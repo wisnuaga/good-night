@@ -2,15 +2,13 @@ require "ostruct"
 
 module SleepRecordUsecase
   class ClockIn < SleepRecordUsecase::Base
-    attr_reader :user, :sleep_record
     def initialize(user)
       super(user)
     end
 
     def call
-      return failure("User not found") unless @user
+      validate
 
-      active_session = self.get_active_session
       return failure("You already have an active sleep session") if active_session
 
       record = @user.sleep_records.new(clock_in: Time.current)
@@ -20,6 +18,10 @@ module SleepRecordUsecase
       else
         self.failure("Failed to create sleep record")
       end
+    rescue UsecaseError::UserNotFoundError => e
+      failure(e.message)
+    rescue => e
+      failure("Unexpected error: #{e.message}")
     end
   end
 end

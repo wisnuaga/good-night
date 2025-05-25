@@ -9,10 +9,14 @@ module SleepRecordUsecase
 
     private
 
-    attr_reader :user
+    attr_reader :user, :sleep_record_repository
+
+    def validate
+      raise UsecaseError::UserNotFoundError unless @user
+    end
 
     def active_session
-      @active_session = @user.sleep_records.where(clock_out: nil).order(:clock_in).last
+      @user.sleep_records.where(clock_out: nil).order(:clock_in).last
     end
 
     def success(record)

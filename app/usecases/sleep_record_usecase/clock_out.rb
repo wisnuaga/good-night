@@ -8,9 +8,8 @@ module SleepRecordUsecase
     end
 
     def call
-      return failure("User not found") unless @user
+      validate
 
-      active_session = self.get_active_session
       return failure("No active sleep session found") if active_session.nil?
 
       active_session.clock_out = Time.current
@@ -20,6 +19,10 @@ module SleepRecordUsecase
       else
         self.failure("Failed to clock out")
       end
+    rescue UsecaseError::UserNotFoundError => e
+      failure(e.message)
+    rescue => e
+      failure("Unexpected error: #{e.message}")
     end
   end
 end
