@@ -4,19 +4,19 @@ class SleepRecordController < ApplicationController
 
   # POST /sleep_records/clock_in
   def clock_in
-    result = SleepRecordUsecase::ClockIn.new(@current_user).call
+    result = SleepRecordUsecase::ClockIn.new(current_user).call
     render_result(result, :created)
   end
 
   # PUT /sleep_records/clock_out
   def clock_out
-    result = SleepRecordUsecase::ClockOut.new(@current_user).call
+    result = SleepRecordUsecase::ClockOut.new(current_user).call
     render_result(result, :ok)
   end
 
   def index
     result = SleepRecordUsecase::List.new(
-      @current_user,
+      current_user,
       include_followees: index_params[:include_followees]
     ).call
 

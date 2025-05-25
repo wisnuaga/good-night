@@ -4,7 +4,7 @@ class FollowsController < ApplicationController
 
   # POST /users/:id/following
   def follow
-    if @current_user.id == params[:id].to_i
+    if current_user.id == params[:id].to_i
       render_result(
         OpenStruct.new(success?: false, error: "Cannot follow yourself"),
         :bad_request
@@ -12,13 +12,13 @@ class FollowsController < ApplicationController
       return
     end
 
-    result = FollowUsecase::Follow.new(@current_user, params[:id].to_i).call
+    result = FollowUsecase::Follow.new(current_user, params[:id].to_i).call
     render_result(result, :created)
   end
 
   # DELETE /users/:id/following
   def unfollow
-    result = FollowUsecase::Unfollow.new(@current_user, params[:id].to_i).call
+    result = FollowUsecase::Unfollow.new(current_user, params[:id].to_i).call
     render_result(result, :ok)
   end
 end
