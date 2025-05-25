@@ -150,6 +150,8 @@ GEM
     matrix (0.4.2)
     mini_mime (1.1.5)
     minitest (5.25.5)
+    mock_redis (0.50.0)
+      redis (~> 5)
     msgpack (1.8.0)
     net-imap (0.5.8)
       date
@@ -364,6 +366,7 @@ DEPENDENCIES
   faker
   importmap-rails
   jbuilder
+  mock_redis
   pg
   puma (>= 5.0)
   rails (~> 7.2.2, >= 7.2.2.1)
