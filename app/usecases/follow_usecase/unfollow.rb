@@ -11,7 +11,7 @@ module FollowUsecase
       else
         failure("Failed to unfollow user")
       end
-    rescue FollowUsecase::UserNotFoundError => e
+    rescue UsecaseError::UserNotFoundError => e
       failure(e.message)
     rescue => e
       failure("Unexpected error: #{e.message}")

@@ -13,7 +13,7 @@ module FollowUsecase
       else
         failure(follow.errors.full_messages.join(", "))
       end
-    rescue FollowUsecase::UserNotFoundError => e
+    rescue UsecaseError::UserNotFoundError => e
       failure(e.message)
     rescue => e
       failure("Unexpected error: #{e.message}")
