@@ -1,27 +1,31 @@
 module SleepRecordUsecase
   class List < Base
-    def initialize(user, include_followers: false)
-      super(user)
-      @include_followers = include_followers
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, include_followees: false)
+      super(user, sleep_record_repository: sleep_record_repository, follow_repository: follow_repository)
+      @include_followees = include_followees
     end
 
     def call
-      return failure("User not found") unless @user
+      validate_user!
 
-      follower_ids = get_follower_ids
-      sleep_records = SleepRecord.where(user_id: follower_ids).order(clock_in: :desc)
-
-      success(sleep_records)
+      sleep_records = sleep_record_repository.list_by_user_ids(user_ids)
+      success({ data: sleep_records }) # TODO: add pagination
+    rescue UsecaseError::UserNotFoundError => e
+      failure(e.message)
+    rescue => e
+      failure("Unexpected error: #{e.message}")
     end
 
     private
 
-    def get_follower_ids
-      return [ @user.id ] unless @include_followers
+    attr_reader :include_followees
 
-      follower_ids = @user.active_follows.pluck(:followed_id)
-      follower_ids << @user.id
-      follower_ids
+    def user_ids
+      return [ user.id ] unless include_followees
+
+      followee_ids = follow_repository.list_followee_ids(follower_id: user.id)
+      followee_ids << user.id
+      followee_ids
     end
   end
 end

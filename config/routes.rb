@@ -6,8 +6,8 @@ Rails.application.routes.draw do
   get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
   get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
 
-  put "users/:id/follow",   to: "follows#follow",   as: :follow_user
-  put "users/:id/unfollow", to: "follows#unfollow",  as: :unfollow_user
+  post "users/:id/following",   to: "follows#follow",   as: :follow_user
+  delete "users/:id/following", to: "follows#unfollow",  as: :unfollow_user
 
   post "/sleep_records/clock_in", to: "sleep_record#clock_in", as: :clock_in
   put "/sleep_records/clock_out", to: "sleep_record#clock_out", as: :clock_out

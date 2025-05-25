@@ -1,25 +1,25 @@
-require "ostruct"
-
 module SleepRecordUsecase
-  class Base
-    def initialize(user)
+  class Base < Usecase
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new)
       @user = user
+      @sleep_record_repository = sleep_record_repository
+      @follow_repository = follow_repository
     end
 
     private
 
-    attr_reader :user
+    attr_reader :user, :sleep_record_repository, :follow_repository, :session
 
-    def get_active_session
-      @user.sleep_records.where(clock_out: nil).order(:clock_in).last
+    def validate_user!
+      raise UsecaseError::UserNotFoundError unless user
     end
 
-    def success(record)
-      OpenStruct.new(success?: true, data: record)
+    def active_session
+      sleep_record_repository.find_active_by_user(user_id: user.id)
     end
 
-    def failure(error_message)
-      OpenStruct.new(success?: false, error: error_message)
+    def session
+      @session ||= active_session
     end
   end
 end

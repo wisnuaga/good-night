@@ -16,18 +16,18 @@ ActiveRecord::Schema[7.2].define(version: 2025_05_23_085826) do
 
   create_table "follows", force: :cascade do |t|
     t.bigint "follower_id", null: false
-    t.bigint "followed_id", null: false
+    t.bigint "followee_id", null: false
     t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.index ["followed_id"], name: "index_follows_on_followed_id"
+    t.index ["followee_id"], name: "index_follows_on_followee_id"
+    t.index ["follower_id", "followee_id"], name: "index_follows_on_follower_id_and_followee_id", unique: true
     t.index ["follower_id"], name: "index_follows_on_follower_id"
   end
 
   create_table "sleep_records", force: :cascade do |t|
     t.bigint "user_id", null: false
-    t.datetime "clock_in"
+    t.datetime "clock_in", null: false
     t.datetime "clock_out"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.index ["clock_in"], name: "index_sleep_records_on_clock_in_where_clock_out_null", where: "(clock_out IS NULL)"
     t.index ["user_id"], name: "index_sleep_records_on_user_id"
   end
 
@@ -37,7 +37,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_05_23_085826) do
     t.datetime "updated_at", null: false
   end
 
-  add_foreign_key "follows", "users", column: "followed_id"
+  add_foreign_key "follows", "users", column: "followee_id"
   add_foreign_key "follows", "users", column: "follower_id"
   add_foreign_key "sleep_records", "users"
 end

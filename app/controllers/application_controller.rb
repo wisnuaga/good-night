@@ -1,6 +1,9 @@
+require 'ostruct'
+
 class ApplicationController < ActionController::Base
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
+  attr_reader :current_user
 
   private
 
@@ -11,5 +14,13 @@ class ApplicationController < ActionController::Base
 
     @current_user = User.find_by(id: user_id)
     render json: { error: "Current user not found" }, status: :unauthorized and return if @current_user.nil?
+  end
+
+  def render_result(result, success_status)
+    if result.success?
+      render json: result.data, status: success_status
+    else
+      render json: { error: result.error }, status: :bad_request
+    end
   end
 end
