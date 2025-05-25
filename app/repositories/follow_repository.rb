@@ -12,6 +12,6 @@ class FollowRepository
   end
 
   def list_followee_ids(follower_id:)
-    Follow.where(follower_id: follower_id, active: true).pluck(:followee_id)
+    Follow.where(follower_id: follower_id).pluck(:followee_id)
   end
 end
