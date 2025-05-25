@@ -62,4 +62,20 @@ RSpec.describe FollowRepository do
       expect(repo.list_followee_ids(user_id: follower.id)).to eq([])
     end
   end
+
+  describe "#list_follower_ids" do
+    let(:follower_2) { User.create!(name: "Follower 2") }
+
+    it "returns list of followee ids for a follower" do
+      other_user = User.create!(name: "Other 2")
+      repo.create(follower: follower, followee: other_user)
+      repo.create(follower: follower_2, followee: other_user)
+      expect(repo.list_follower_ids(user_id: other_user.id)).to match_array([follower.id, follower_2.id])
+    end
+
+    it "returns empty array if follower has no followees" do
+      unfollowed_other_user = User.create!(name: "Unfollowed Other 1")
+      expect(repo.list_follower_ids(user_id: unfollowed_other_user.id)).to eq([])
+    end
+  end
 end
