@@ -1,6 +1,10 @@
 require "ostruct"
 
 module FollowUsecase
+  class UserNotFoundError < StandardError; end
+  class FolloweeNotFoundError < UserNotFoundError; end
+  class FollowerNotFoundError < UserNotFoundError; end
+
   class Base
     def initialize(user, followee_id, follow_repository: FollowRepository.new)
       @user = user
@@ -10,10 +14,16 @@ module FollowUsecase
 
     private
 
-    attr_reader :user
+    attr_reader :user, :followee_id, :follow_repository
 
-    def get_followee
-      @followee ||= User.find_by(id: @followee_id)
+    def followee
+      @followee ||= User.find_by(id: followee_id)
+    end
+
+    # Returns OpenStruct success or failure, no exceptions
+    def validate
+      raise FollowUsecase::FollowerNotFoundError, "User not found" unless user
+      raise FollowUsecase::FolloweeNotFoundError, "Followed user not found" unless followee
     end
 
     def success(record)
