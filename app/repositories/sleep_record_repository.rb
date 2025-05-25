@@ -1,4 +1,6 @@
 class SleepRecordRepository
+  FEED_LIST_LIMIT = (ENV['FEED_LIST_LIMIT'] || 50).to_i
+
   def list_by_user_ids(user_ids)
     SleepRecord.where(user_id: user_ids).order(clock_in: :desc)
   end
