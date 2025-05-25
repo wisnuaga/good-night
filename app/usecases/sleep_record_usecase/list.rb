@@ -1,15 +1,14 @@
 module SleepRecordUsecase
   class List < Base
-    def initialize(user, include_followees: false)
-      super(user)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, include_followees: false)
+      super(user, sleep_record_repository: sleep_record_repository)
       @include_followees = include_followees
     end
 
     def call
-      return failure("User not found") unless @user
+      validate
 
-      followee_ids = get_followee_ids
-      sleep_records = SleepRecord.where(user_id: followee_ids).order(clock_in: :desc)
+      sleep_records = @sleep_record_repository.list_by_user_ids(user_ids)
 
       success({ data: sleep_records })
       # TODO: add pagination
@@ -17,7 +16,7 @@ module SleepRecordUsecase
 
     private
 
-    def get_followee_ids
+    def user_ids
       return [ @user.id ] unless @include_followees
 
       followee_ids = @user.active_follows.pluck(:followee_id)
