@@ -26,7 +26,7 @@ class SleepRecordRepository
   def fanout_to_followers(sleep_record:, follower_ids:)
     follower_ids.each do |follower_id|
       key = feed_key(user_id: follower_id)
-      $redis.lpush(key, sleep_record.to_json)
+      $redis.lpush(key, sleep_record.id)
       $redis.ltrim(key, 0, FEED_LIST_LIMIT - 1)
       $redis.expire(key, FEED_TTL_SECONDS)
     end
