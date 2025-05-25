@@ -2,14 +2,15 @@ require "ostruct"
 
 module SleepRecordUsecase
   class Base
-    def initialize(user, sleep_record_repository: SleepRecordRepository.new)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new)
       @user = user
       @sleep_record_repository = sleep_record_repository
+      @follow_repository = follow_repository
     end
 
     private
 
-    attr_reader :user, :sleep_record_repository, :session
+    attr_reader :user, :sleep_record_repository, :follow_repository, :session
 
     def validate_user!
       raise UsecaseError::UserNotFoundError unless user

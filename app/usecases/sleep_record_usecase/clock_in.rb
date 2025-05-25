@@ -2,8 +2,8 @@ require "ostruct"
 
 module SleepRecordUsecase
   class ClockIn < Base
-    def initialize(user, sleep_record_repository: SleepRecordRepository.new, clock_in: Time.current)
-      super(user, sleep_record_repository: sleep_record_repository)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, clock_in: Time.current)
+      super(user, sleep_record_repository: sleep_record_repository, follow_repository: follow_repository)
       @clock_in = clock_in
     end
 

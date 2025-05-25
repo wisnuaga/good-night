@@ -1,7 +1,7 @@
 module SleepRecordUsecase
   class List < Base
-    def initialize(user, sleep_record_repository: SleepRecordRepository.new, include_followees: false)
-      super(user, sleep_record_repository: sleep_record_repository)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, include_followees: false)
+      super(user, sleep_record_repository: sleep_record_repository, follow_repository: follow_repository)
       @include_followees = include_followees
     end
 
@@ -23,7 +23,9 @@ module SleepRecordUsecase
     def user_ids
       return [ user.id ] unless include_followees
 
-      user.active_follows.pluck(:followee_id).tap { |ids| ids << user.id }
+      followee_ids = follow_repository.list_followee_ids(follower_id: user.id)
+      followee_ids << user.id
+      followee_ids
     end
   end
 end
