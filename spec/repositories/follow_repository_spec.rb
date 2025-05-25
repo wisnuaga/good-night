@@ -55,11 +55,11 @@ RSpec.describe FollowRepository do
       other_user = User.create!(name: "Other")
       repo.create(follower: follower, followee: followee)
       repo.create(follower: follower, followee: other_user)
-      expect(repo.list_followee_ids(follower_id: follower.id)).to match_array([followee.id, other_user.id])
+      expect(repo.list_followee_ids(user_id: follower.id)).to match_array([followee.id, other_user.id])
     end
 
     it "returns empty array if follower has no followees" do
-      expect(repo.list_followee_ids(follower_id: follower.id)).to eq([])
+      expect(repo.list_followee_ids(user_id: follower.id)).to eq([])
     end
   end
 end

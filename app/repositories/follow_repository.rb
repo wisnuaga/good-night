@@ -11,8 +11,8 @@ class FollowRepository
     Follow.find_by(follower: follower, followee: followee)
   end
 
-  def list_followee_ids(follower_id:)
-    Follow.where(follower_id: follower_id).pluck(:followee_id)
+  def list_followee_ids(user_id:)
+    Follow.where(follower_id: user_id).pluck(:followee_id)
   end
 
   def list_follower_ids(user_id:)
