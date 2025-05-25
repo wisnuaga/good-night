@@ -1,5 +1,5 @@
 class UserRepository
-  def find(id)
+  def find_by_id(id)
     User.find_by(id: id)
   end
 end
