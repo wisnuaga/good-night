@@ -2,27 +2,33 @@ require "ostruct"
 
 module SleepRecordUsecase
   class ClockOut < Base
-    attr_reader :user, :sleep_record
-    def initialize(user)
-      super(user)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, clock_out: Time.current)
+      super(user, sleep_record_repository: sleep_record_repository)
+      @clock_out = clock_out
     end
 
     def call
       validate
 
-      return failure("No active sleep session found") if active_session.nil?
+      @session.clock_out = @clock_out
 
-      active_session.clock_out = Time.current
-
-      if active_session.save
-        self.success(active_session)
+      if @session.save
+        success(@session)
       else
-        self.failure("Failed to clock out")
+        failure("Failed to clock out")
       end
-    rescue UsecaseError::UserNotFoundError => e
+    rescue UsecaseError::UserNotFoundError, UsecaseError::ActiveSleepSessionNotFound => e
       failure(e.message)
     rescue => e
       failure("Unexpected error: #{e.message}")
+    end
+
+    private
+
+    def validate
+      super
+      @session = active_session
+      raise UsecaseError::ActiveSleepSessionNotFound if @session.nil?
     end
   end
 end
