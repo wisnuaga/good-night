@@ -6,4 +6,8 @@ class FollowRepository
   def exists?(follower:, followee:)
     Follow.exists?(follower: follower, followee: followee)
   end
+
+  def find_by_follower_and_followee(follower:, followee:)
+    Follow.find_by(follower: follower, followee: followee)
+  end
 end

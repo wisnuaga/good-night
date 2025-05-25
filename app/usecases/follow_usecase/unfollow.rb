@@ -3,7 +3,7 @@ module FollowUsecase
     def call
       validate
 
-      follow = follow_repository.find_existing(follower: user, followee: followee)
+      follow = follow_repository.find_by_follower_and_followee(follower: user, followee: followee)
       return failure("Not following this user") unless follow
 
       if follow.destroy!
