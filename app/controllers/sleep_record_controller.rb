@@ -14,6 +14,7 @@ class SleepRecordController < ApplicationController
     render_result(result, :ok)
   end
 
+  # GET /sleep_records
   def index
     result = SleepRecordUsecase::List.new(
       current_user,
