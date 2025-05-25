@@ -1,7 +1,5 @@
-require "ostruct"
-
 module FollowUsecase
-  class Base
+  class Base < Usecase
     def initialize(user, followee_id, follow_repository: FollowRepository.new, user_repository: UserRepository.new)
       @user = user
       @followee_id = followee_id
@@ -21,14 +19,6 @@ module FollowUsecase
     def validate
       raise UsecaseError::UserNotFoundError unless user
       raise UsecaseError::UserNotFoundError, "Followed user not found" unless followee
-    end
-
-    def success(record)
-      OpenStruct.new(success?: true, data: record)
-    end
-
-    def failure(error_message)
-      OpenStruct.new(success?: false, error: error_message)
     end
   end
 end
