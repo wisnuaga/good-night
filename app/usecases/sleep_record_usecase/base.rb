@@ -16,7 +16,7 @@ module SleepRecordUsecase
     end
 
     def active_session
-      @user.sleep_records.where(clock_out: nil).order(:clock_in).last
+      sleep_record_repository.find_active_by_user(user: @user.id)
     end
 
     def success(record)
