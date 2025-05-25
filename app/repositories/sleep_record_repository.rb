@@ -1,5 +1,5 @@
 class SleepRecordRepository
-  def list(user_ids)
+  def list_by_user_ids(user_ids)
     SleepRecord.where(user_id: user_ids).order(clock_in: :desc)
   end
 
