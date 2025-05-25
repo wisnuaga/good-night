@@ -1,6 +1,4 @@
-module Errors
-  class UsecaseError < StandardError; end
-
+class UsecaseError < StandardError
   class UserNotFoundError < UsecaseError
     def initialize(msg = "User not found")
       super
