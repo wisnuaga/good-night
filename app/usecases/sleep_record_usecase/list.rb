@@ -12,6 +12,10 @@ module SleepRecordUsecase
 
       success({ data: sleep_records })
       # TODO: add pagination
+    rescue UsecaseError::UserNotFoundError => e
+      failure(e.message)
+    rescue => e
+      failure("Unexpected error: #{e.message}")
     end
 
     private
