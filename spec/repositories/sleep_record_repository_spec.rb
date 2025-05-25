@@ -79,6 +79,7 @@ RSpec.describe SleepRecordRepository do
 
     before do
       stub_const("SleepRecordRepository::FEED_LIST_LIMIT", 2)
+      stub_const("SleepRecordRepository::FEED_TTL_SECONDS", 3600)
       $redis.del("feed:#{follower_ids}")
     end
 
