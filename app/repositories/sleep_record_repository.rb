@@ -22,7 +22,7 @@ class SleepRecordRepository
     sleep_record.destroy
   end
 
-  def fanout_to_followers(sleep_record, follower_ids)
+  def fanout_to_followers(sleep_record:, follower_ids:)
     follower_ids.each do |follower_id|
       $redis.lpush(feed_key(follower_id), sleep_record.to_json)
       $redis.ltrim(feed_key(follower_id), 0, FEED_LIST_LIMIT - 1)

@@ -83,7 +83,7 @@ RSpec.describe SleepRecordRepository do
     end
 
     it "pushes the sleep record to each follower's feed in Redis" do
-      repo.fanout_to_followers(sleep_record, follower_ids)
+      repo.fanout_to_followers(sleep_record: sleep_record, follower_ids: follower_ids)
 
       follower_ids.each do |fid|
         feed_key = "feed:#{fid}"
@@ -98,7 +98,7 @@ RSpec.describe SleepRecordRepository do
       stub_const("FEED_LIST_LIMIT", 2) # override for test
       3.times do |i|
         sr = SleepRecord.create!(user: user, clock_in: (2 + i).hours.ago, clock_out: i.hours.ago)
-        repo.fanout_to_followers(sr, follower_ids)
+        repo.fanout_to_followers(sleep_record: sr, follower_ids: follower_ids)
       end
 
       follower_ids.each do |fid|
