@@ -7,8 +7,8 @@ class SleepRecordRepository
     SleepRecord.find_by(id: id)
   end
 
-  def find_active_by_user(user_id)
-    SleepRecord.where(user_id: user_id, clock_out: nil).order(:clock_in).last
+  def find_active_by_user(user_id:)
+    SleepRecord.where(user_id: user_id, clock_out: nil).order(clock_in: :desc).first
   end
 
   def create(user_id:, clock_in:, clock_out: nil)
