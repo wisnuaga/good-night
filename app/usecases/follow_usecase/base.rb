@@ -10,7 +10,7 @@ module FollowUsecase
 
     private
 
-    attr_reader :user, :followee_id, :follow_repository
+    attr_reader :user, :followee_id, :follow_repository, :followee
 
     def followee
       @followee ||= User.find_by(id: followee_id)
