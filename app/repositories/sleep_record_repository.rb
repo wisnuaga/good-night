@@ -1,4 +1,7 @@
 class SleepRecordRepository
+  FEED_LIST_LIMIT = (ENV['FEED_LIST_LIMIT'] || 50).to_i
+  FEED_TTL_SECONDS = (ENV['FEED_TTL_SECONDS'] || 604800).to_i  # default 7 days
+
   def list_by_user_ids(user_ids)
     SleepRecord.where(user_id: user_ids).order(clock_in: :desc)
   end
@@ -18,5 +21,20 @@ class SleepRecordRepository
 
   def delete(sleep_record)
     sleep_record.destroy
+  end
+
+  def fanout_to_followers(sleep_record:, follower_ids:)
+    follower_ids.each do |follower_id|
+      key = feed_key(user_id: follower_id)
+      $redis.lpush(key, sleep_record.to_json)
+      $redis.ltrim(key, 0, FEED_LIST_LIMIT - 1)
+      $redis.expire(key, FEED_TTL_SECONDS)
+    end
+  end
+
+  private
+
+  def feed_key(user_id:)
+    "feed:#{user_id}"
   end
 end

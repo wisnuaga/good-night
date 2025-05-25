@@ -70,4 +70,43 @@ RSpec.describe SleepRecordRepository do
       }.to change { SleepRecord.exists?(record.id) }.from(true).to(false)
     end
   end
+
+  describe "#fanout_to_followers" do
+    let(:follower_ids) { [101, 102, 103] }
+    let(:sleep_record) do
+      SleepRecord.create!(user: user, clock_in: 2.hours.ago, clock_out: 1.hour.ago)
+    end
+
+    before do
+      stub_const("SleepRecordRepository::FEED_LIST_LIMIT", 2)
+      stub_const("SleepRecordRepository::FEED_TTL_SECONDS", 3600)
+      $redis.del("feed:#{follower_ids}")
+    end
+
+    it "pushes the sleep record to each follower's feed in Redis" do
+      repo.fanout_to_followers(sleep_record: sleep_record, follower_ids: follower_ids)
+
+      follower_ids.each do |fid|
+        feed_key = "feed:#{fid}"
+        feed = $redis.lrange(feed_key, 0, -1)
+
+        expect(feed.length).to eq(1)
+        expect(JSON.parse(feed.first)["id"]).to eq(sleep_record.id)
+      end
+    end
+
+    it "trims the feed to FEED_LIST_LIMIT items" do
+      stub_const("FEED_LIST_LIMIT", 2) # override for test
+      3.times do |i|
+        sr = SleepRecord.create!(user: user, clock_in: (2 + i).hours.ago, clock_out: i.hours.ago)
+        repo.fanout_to_followers(sleep_record: sr, follower_ids: follower_ids)
+      end
+
+      follower_ids.each do |fid|
+        feed_key = "feed:#{fid}"
+        feed = $redis.lrange(feed_key, 0, -1)
+        expect(feed.length).to eq(2) # should be trimmed to limit
+      end
+    end
+  end
 end

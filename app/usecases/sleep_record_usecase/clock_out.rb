@@ -13,7 +13,14 @@ module SleepRecordUsecase
 
       session.clock_out = clock_out
 
-      session.save ? success(session) : failure("Failed to clock out")
+      if session.save
+        # TODO: Move to background job
+        sleep_record_repository.fanout_to_followers(sleep_record: session, follower_ids: follower_ids)
+
+        success(session)
+      else
+        failure("Failed to clock out")
+      end
     rescue UsecaseError::UserNotFoundError, UsecaseError::ActiveSleepSessionNotFound => e
       failure(e.message)
     rescue => e
@@ -26,6 +33,12 @@ module SleepRecordUsecase
 
     def validate_active_session!
       raise UsecaseError::ActiveSleepSessionNotFound if session.nil?
+    end
+
+    def follower_ids
+      followee_ids = follow_repository.list_follower_ids(user_id: user.id)
+      followee_ids << user.id
+      followee_ids
     end
   end
 end

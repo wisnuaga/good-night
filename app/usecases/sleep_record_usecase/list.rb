@@ -23,7 +23,7 @@ module SleepRecordUsecase
     def user_ids
       return [ user.id ] unless include_followees
 
-      followee_ids = follow_repository.list_followee_ids(follower_id: user.id)
+      followee_ids = follow_repository.list_followee_ids(user_id: user.id)
       followee_ids << user.id
       followee_ids
     end
