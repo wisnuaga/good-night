@@ -8,7 +8,9 @@ module SleepRecordUsecase
     def call
       validate_user!
 
-      sleep_records = sleep_record_repository.list_by_user_ids(user_ids)
+      sleep_records = sleep_record_repository.list_fanout(user_id: user.id)
+
+      sleep_records = sleep_record_repository.list_by_user_ids(user_ids) if sleep_records.empty?
       success({ data: sleep_records }) # TODO: add pagination
     rescue UsecaseError::UserNotFoundError => e
       failure(e.message)
