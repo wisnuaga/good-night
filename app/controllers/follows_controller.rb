@@ -19,6 +19,6 @@ class FollowsController < ApplicationController
   # DELETE /users/:id/following
   def unfollow
     result = FollowUsecase::Unfollow.new(@current_user, params[:id].to_i).call
-    render_result(result, :created)
+    render_result(result, :ok)
   end
 end
