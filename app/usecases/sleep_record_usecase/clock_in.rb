@@ -2,26 +2,36 @@ require "ostruct"
 
 module SleepRecordUsecase
   class ClockIn < SleepRecordUsecase::Base
-    def initialize(user)
-      super(user)
+    def initialize(user, sleep_record_repository: SleepRecordRepository.new, clock_in: Time.current)
+      super(user, sleep_record_repository: sleep_record_repository)
+      @clock_in = clock_in
     end
 
     def call
       validate
 
-      return failure("You already have an active sleep session") if active_session
+      record = sleep_record_repository.create(
+        user_id: user.id,
+        clock_in: @clock_in,
+      )
 
-      record = @user.sleep_records.new(clock_in: Time.current)
-
-      if record.save
-        self.success(record)
+      if record.persisted?
+        success(record)
       else
-        self.failure("Failed to create sleep record")
+        failure(record.errors.full_messages.join(", "))
       end
-    rescue UsecaseError::UserNotFoundError => e
+    rescue UsecaseError::UserNotFoundError, UsecaseError::ActiveSleepSessionAlreadyExists => e
       failure(e.message)
     rescue => e
       failure("Unexpected error: #{e.message}")
+    end
+
+    private
+
+    def validate
+      super
+      session = active_session
+      raise UsecaseError::ActiveSleepSessionAlreadyExists if session&.persisted?
     end
   end
 end
