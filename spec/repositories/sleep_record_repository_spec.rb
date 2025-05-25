@@ -108,4 +108,30 @@ RSpec.describe SleepRecordRepository do
       end
     end
   end
+
+  describe "#list_fanout" do
+    let(:follower_id) { 999 }
+    let(:feed_key) { "feed:#{follower_id}" }
+
+    before do
+      $redis.del(feed_key)
+      stub_const("SleepRecordRepository::FEED_LIST_LIMIT", 3)
+    end
+
+    it "returns sleep records based on Redis-stored IDs, preserving order" do
+      sr1 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
+      sr2 = SleepRecord.create!(user: user, clock_in: 2.hours.ago, clock_out: 1.hour.ago)
+      sr3 = SleepRecord.create!(user: user, clock_in: 1.hour.ago, clock_out: Time.current)
+
+      [sr2.id, sr3.id, sr1.id].each { |id| $redis.lpush(feed_key, id) } # Simulate order
+
+      records = repo.list_fanout(user_id: follower_id)
+
+      expect(records.map(&:id)).to eq([sr1.id, sr3.id, sr2.id])
+    end
+
+    it "returns empty array if Redis feed is empty" do
+      expect(repo.list_fanout(user_id: follower_id)).to eq([])
+    end
+  end
 end
