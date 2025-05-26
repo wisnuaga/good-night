@@ -62,6 +62,40 @@ RSpec.describe SleepRecordRepository do
     end
   end
 
+  describe "#list_by_ids" do
+    let(:user) { create(:user) }
+
+    it "returns records by given ids ordered by clock_in desc" do
+      r1 = SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hours.ago)
+      r2 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
+      result = repo.list_by_ids(ids: [r1.id, r2.id])
+      expect(result).to eq([r2, r1])
+    end
+
+    it "applies cursor correctly" do
+      r1 = SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hours.ago)
+      r2 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
+      cursor = 4.hours.ago
+      result = repo.list_by_ids(ids: [r1.id, r2.id], cursor: cursor)
+      expect(result).to eq([r1])
+    end
+  end
+
+  describe "#count_by_user_ids" do
+    let(:user) { create(:user) }
+
+    it "counts records after given clock_in time" do
+      SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hour)
+      count = repo.count_by_user_ids(user_ids: [user.id], clock_in: 1.day.ago)
+      expect(count).to eq(1)
+    end
+
+    it "returns 0 if no records match" do
+      count = repo.count_by_user_ids(user_ids: [user.id], clock_in: Time.current)
+      expect(count).to eq(0)
+    end
+  end
+
   describe "#find_active_by_user" do
     it "returns nil if there is no active sleep record" do
       SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
