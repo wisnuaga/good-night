@@ -8,10 +8,16 @@ class SleepRecordRepository
     query.order(clock_in: :desc).limit(limit)
   end
 
-  def list_by_ids(ids:, cursor: nil, limit: FEED_TTL_SECONDS)
+  def list_by_ids(ids:, cursor: nil, limit: FEED_LIST_LIMIT)
     query = SleepRecord.where(id: ids)
     query = query.where('clock_in < ?', cursor) if cursor
     query.order(clock_in: :desc).limit(limit)
+  end
+
+  def count_by_user_ids(user_ids:, cursor: nil, limit: FEED_LIST_LIMIT)
+    query = SleepRecord.where(user_id: user_ids)
+    query = query.where('clock_in < ?', cursor) if cursor
+    query.order(clock_in: :desc).limit(limit).pluck(:id).count
   end
 
   def find_active_by_user(user_id:)
@@ -40,9 +46,9 @@ class SleepRecordRepository
     end
   end
 
-  def list_fanout(user_id:)
+  def list_fanout(user_id:, limit: FEED_LIST_LIMIT)
     key = feed_key(user_id: user_id)
-    $redis.lrange(key, 0, FEED_LIST_LIMIT - 1).map(&:to_i)
+    $redis.zrevrange(key, 0, limit - 1).map(&:to_i)
   end
 
   def rebuild_feed_cache(user_id:, user_ids:)
