@@ -24,10 +24,10 @@ class FanoutRepository < Repository
 
     # ZADD with NX only adds if not already present (idempotent)
     $redis.zadd(key, [sleep_record.clock_in.to_i, sleep_record.id], nx: true)
-    trim_feed(user_id: user_id)
+    trim_feed(user_id)
   end
 
-  def trim_feed(user_id:)
+  def trim_feed(user_id)
     key = feed_key(user_id: user_id)
     $redis.zremrangebyrank(key, 0, -(FEED_LIST_LIMIT + 1))
     $redis.expire(key, FEED_TTL_SECONDS)
