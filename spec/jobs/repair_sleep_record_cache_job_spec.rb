@@ -2,58 +2,76 @@ require "rails_helper"
 
 RSpec.describe RepairSleepRecordFanoutJob, type: :job do
   let(:user_id) { 1 }
-  let(:followee_ids) { [2, 3] }
+  let(:followee_ids_batch_1) { [2, 3] }
+  let(:followee_ids_batch_2) { [4] }
   let(:lock_key) { "repair_lock:#{user_id}" }
-  let(:redis_key) { "feed:#{user_id}" }
-  let(:sleep_record_repo) { instance_double("SleepRecordRepository") }
-  let(:fanout_repo) { instance_double("FanoutRepository") }
   let(:existing_ids) { [10, 11] }
   let(:feed_limit) { 3 }
   let(:feed_ttl) { 3600 }
 
+  let(:sleep_record_repo) { instance_double("SleepRecordRepository") }
+  let(:fanout_repo) { instance_double("FanoutRepository") }
+  let(:follow_repo) { instance_double("FollowRepository") }
+
+  let(:records_batch_1) do
+    [
+      OpenStruct.new(id: 12, clock_in: Time.parse("2025-05-26 10:00:00")),
+      OpenStruct.new(id: 13, clock_in: Time.parse("2025-05-26 09:00:00"))
+    ]
+  end
+
+  let(:records_batch_2) do
+    [
+      OpenStruct.new(id: 14, clock_in: Time.parse("2025-05-26 08:00:00"))
+    ]
+  end
+
   before do
     stub_const("SleepRecordRepository::FEED_LIST_LIMIT", feed_limit)
     stub_const("SleepRecordRepository::FEED_TTL_SECONDS", feed_ttl)
+    stub_const("Repository::FANOUT_LIMIT", 2)
+
+    allow($redis).to receive(:set).with(lock_key, true, nx: true, ex: 60).and_return(true)
 
     allow(SleepRecordRepository).to receive(:new).and_return(sleep_record_repo)
     allow(FanoutRepository).to receive(:new).and_return(fanout_repo)
+    allow(FollowRepository).to receive(:new).and_return(follow_repo)
+
     allow(fanout_repo).to receive(:list_fanout).with(user_id: user_id).and_return(existing_ids)
+    allow(fanout_repo).to receive(:add_to_feed)
   end
 
   describe "#perform" do
     context "when lock is acquired" do
-      let(:records_batch_1) do
-        [
-          OpenStruct.new(id: 12, clock_in: Time.parse("2025-05-26 10:00:00")),
-          OpenStruct.new(id: 13, clock_in: Time.parse("2025-05-26 09:00:00"))
-        ]
-      end
-      let(:records_batch_2) do
-        [
-          OpenStruct.new(id: 14, clock_in: Time.parse("2025-05-26 08:00:00"))
-        ]
-      end
-
       before do
-        allow($redis).to receive(:set).with(lock_key, true, nx: true, ex: 60).and_return(true)
+        # First call to list_followee_ids_batch returns first batch and cursor
+        allow(follow_repo).to receive(:list_followee_ids_batch)
+                                .with(user_id: user_id, cursor: nil, limit: 2)
+                                .and_return([followee_ids_batch_1, "cursor-1"])
 
+        # Second call returns another batch and nil cursor (end)
+        allow(follow_repo).to receive(:list_followee_ids_batch)
+                                .with(user_id: user_id, cursor: "cursor-1", limit: 2)
+                                .and_return([followee_ids_batch_2, nil])
+
+        # First batch of sleep records
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids, cursor: nil, limit: feed_limit)
+                                      .with(user_ids: followee_ids_batch_1 + [user_id], cursor: nil, limit: 3)
                                       .and_return(records_batch_1)
 
+        # Second batch of sleep records
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids, cursor: records_batch_1.last.clock_in, limit: feed_limit - records_batch_1.size)
+                                      .with(user_ids: followee_ids_batch_2 + [user_id], cursor: records_batch_1.last.clock_in, limit: 1)
                                       .and_return(records_batch_2)
 
+        # Third call should return empty to break the loop
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids, cursor: records_batch_2.last.clock_in, limit: feed_limit - (records_batch_1.size + records_batch_2.size))
+                                      .with(user_ids: followee_ids_batch_2 + [user_id], cursor: records_batch_2.last.clock_in, limit: 0)
                                       .and_return([])
-
-        allow(fanout_repo).to receive(:add_to_feed)
       end
 
-      it "adds only missing records to feed" do
-        described_class.perform_now(user_id, followee_ids)
+      it "adds only missing records to the feed" do
+        described_class.perform_now(user_id)
 
         expect(fanout_repo).to have_received(:add_to_feed).with(user_id: user_id, sleep_record: records_batch_1[0])
         expect(fanout_repo).to have_received(:add_to_feed).with(user_id: user_id, sleep_record: records_batch_1[1])
@@ -65,7 +83,8 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
       it "returns early without doing anything" do
         allow($redis).to receive(:set).with(lock_key, true, nx: true, ex: 60).and_return(false)
         expect(SleepRecordRepository).not_to receive(:new)
-        described_class.perform_now(user_id, followee_ids)
+
+        described_class.perform_now(user_id)
       end
     end
 
@@ -77,7 +96,7 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
       end
 
       it "logs the error" do
-        described_class.perform_now(user_id, followee_ids)
+        described_class.perform_now(user_id)
         expect(Rails.logger).to have_received(:error).with("[RepairSleepRecordFanoutJob] Failed for user #{user_id}: boom")
       end
     end
