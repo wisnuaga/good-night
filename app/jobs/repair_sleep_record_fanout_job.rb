@@ -45,7 +45,7 @@ class RepairSleepRecordFanoutJob < ApplicationJob
 
       correct_records.concat(records)
       correct_records.uniq!(&:id)
-      cursor_time = records.last.clock_in
+      cursor_time = records.last.sleep_time
 
       break if followee_cursor.nil? || correct_records.size >= SleepRecordRepository::FEED_LIST_LIMIT
     end
