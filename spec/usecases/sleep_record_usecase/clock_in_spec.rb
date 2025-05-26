@@ -18,7 +18,7 @@ RSpec.describe SleepRecordUsecase::ClockIn do
   before do
     # By default, followers do not include user.id (we add it in code)
     allow(follow_repo).to receive(:list_follower_ids).with(user_id: user.id).and_return(follower_ids - [user.id])
-    allow(sleep_record_repo).to receive(:find_active_by_user).with(user_id: user.id).and_return(nil)
+    allow(sleep_record_repo).to receive(:find_active_by_user).with(user.id).and_return(nil)
     allow(sleep_record_repo).to receive(:create).and_return(persisted_record)
     allow(SleepRecordFanoutJob).to receive(:perform_later)
   end
@@ -69,7 +69,7 @@ RSpec.describe SleepRecordUsecase::ClockIn do
     let(:follower_ids) { [1, 2, 3] }
 
     before do
-      allow(sleep_record_repo).to receive(:find_active_by_user).with(user_id: user.id).and_return(instance_double("SleepRecord", persisted?: true))
+      allow(sleep_record_repo).to receive(:find_active_by_user).with(user.id).and_return(instance_double("SleepRecord", persisted?: true))
     end
 
     it "returns failure with appropriate message" do

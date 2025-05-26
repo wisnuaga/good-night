@@ -106,7 +106,7 @@ RSpec.describe SleepRecordRepository do
     it "returns nil if there is no active sleep record" do
       SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
 
-      active = repo.find_active_by_user(user_id: user.id)
+      active = repo.find_active_by_user(user.id)
 
       expect(active).to be_nil
     end
@@ -118,7 +118,7 @@ RSpec.describe SleepRecordRepository do
       # Then create the active session
       active_record = SleepRecord.create!(user: user, clock_in: 1.hour.ago, clock_out: nil)
 
-      active = repo.find_active_by_user(user_id: user.id)
+      active = repo.find_active_by_user(user.id)
 
       expect(active).to eq(active_record)
       expect(active.clock_out).to be_nil

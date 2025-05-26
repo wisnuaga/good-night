@@ -9,7 +9,7 @@ RSpec.describe SleepRecordUsecase::ClockOut do
 
   context "when active session exists" do
     before do
-      allow(sleep_record_repo).to receive(:find_active_by_user).with(user_id: user.id).and_return(session)
+      allow(sleep_record_repo).to receive(:find_active_by_user).with(user.id).and_return(session)
     end
 
     it "returns success" do
@@ -21,7 +21,7 @@ RSpec.describe SleepRecordUsecase::ClockOut do
 
   context "when no active session exists" do
     before do
-      allow(sleep_record_repo).to receive(:find_active_by_user).with(user_id: user.id).and_return(nil)
+      allow(sleep_record_repo).to receive(:find_active_by_user).with(user.id).and_return(nil)
     end
 
     it "returns failure" do

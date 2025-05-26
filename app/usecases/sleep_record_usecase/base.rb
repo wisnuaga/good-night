@@ -16,7 +16,7 @@ module SleepRecordUsecase
     end
 
     def active_session
-      sleep_record_repository.find_active_by_user(user_id: user.id)
+      sleep_record_repository.find_active_by_user(user.id)
     end
 
     def session
