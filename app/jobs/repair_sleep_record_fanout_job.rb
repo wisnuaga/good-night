@@ -13,6 +13,7 @@ class RepairSleepRecordFanoutJob < ApplicationJob
     existing_ids = fanout_repo.list_fanout(user_id: user_id)
     correct_records = []
 
+    first = true
     followee_cursor = nil
     cursor_time = nil
 
@@ -23,13 +24,19 @@ class RepairSleepRecordFanoutJob < ApplicationJob
         limit: Repository::FANOUT_LIMIT
       )
 
+      # include self on first loop only
+      if first
+        followee_ids << user_id
+        first = false
+      end
+
       break if followee_ids.empty?
 
       batch_limit = SleepRecordRepository::FEED_LIST_LIMIT - correct_records.size
       break if batch_limit <= 0
 
       records = sleep_record_repo.list_by_user_ids(
-        user_ids: followee_ids + [user_id], # include self
+        user_ids: followee_ids,
         cursor: cursor_time,
         limit: batch_limit
       )

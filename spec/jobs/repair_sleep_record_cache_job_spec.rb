@@ -61,12 +61,12 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
 
         # Second batch of sleep records
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_2 + [user_id], cursor: records_batch_1.last.clock_in, limit: 1)
+                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_1.last.clock_in, limit: 1)
                                       .and_return(records_batch_2)
 
         # Third call should return empty to break the loop
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_2 + [user_id], cursor: records_batch_2.last.clock_in, limit: 0)
+                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_2.last.clock_in, limit: 0)
                                       .and_return([])
       end
 
