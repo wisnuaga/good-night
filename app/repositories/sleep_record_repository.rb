@@ -17,21 +17,9 @@ class SleepRecordRepository
     end
   end
 
-  def list_fanout(user_id:, cursor: nil, limit: FEED_LIST_LIMIT)
+  def list_fanout(user_id:)
     key = feed_key(user_id: user_id)
-    ids = $redis.lrange(key, 0, limit - 1).map(&:to_i)
-    return [] if ids.empty?
-
-    # Fetch records preserving Redis order
-    records = SleepRecord.where(id: ids).index_by(&:id)
-    records_in_order = ids.map { |id| records[id] }.compact
-
-    # Filter by cursor if provided (optional, depending on your strategy)
-    if cursor
-      records_in_order = records_in_order.select { |r| r.clock_in < cursor }
-    end
-
-    records_in_order.take(limit)
+    $redis.lrange(key, 0, FEED_LIST_LIMIT - 1).map(&:to_i)
   end
 
   def rebuild_feed_cache(user_id:, user_ids:)
