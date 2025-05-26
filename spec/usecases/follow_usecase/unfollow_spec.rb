@@ -19,7 +19,7 @@ RSpec.describe FollowUsecase::Unfollow do
     context "when following and both users exist" do
       it "returns success" do
         follow = double(:follow)
-        allow(user_repository).to receive(:find_by_id).with(id: followee.id).and_return(followee)
+        allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(followee)
         allow(follow_repository).to receive(:find_by_follower_and_followee).with(follower: follower, followee: followee).and_return(follow)
         allow(follow).to receive(:destroy!).and_return(true)
 
@@ -31,7 +31,7 @@ RSpec.describe FollowUsecase::Unfollow do
 
     context "when not following" do
       it "returns failure" do
-        allow(user_repository).to receive(:find_by_id).with(id: followee.id).and_return(followee)
+        allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(followee)
         allow(follow_repository).to receive(:find_by_follower_and_followee).with(follower: follower, followee: followee).and_return(nil)
 
         result = subject.call
@@ -42,7 +42,7 @@ RSpec.describe FollowUsecase::Unfollow do
 
     context "when followee not found" do
       it "returns failure" do
-        allow(user_repository).to receive(:find_by_id).with(id: followee.id).and_return(nil)
+        allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(nil)
 
         result = subject.call
         expect(result.success?).to be false

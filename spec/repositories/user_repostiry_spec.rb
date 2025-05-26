@@ -6,11 +6,11 @@ RSpec.describe UserRepository do
 
   describe "#find_by_id" do
     it "returns user if found" do
-      expect(repo.find_by_id(id: user.id)).to eq(user)
+      expect(repo.find_by_id(user.id)).to eq(user)
     end
 
     it "returns nil if user not found" do
-      expect(repo.find_by_id(id: 0)).to be_nil
+      expect(repo.find_by_id(0)).to be_nil
     end
   end
 end
