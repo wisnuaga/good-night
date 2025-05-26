@@ -7,12 +7,13 @@ module SleepRecordUsecase
       validate_user!
 
       decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)
-      cursor_time = decoded_cursor&.to_i
+      cursor_time_db = decoded_cursor ? Time.at(decoded_cursor) : nil # For DB queries, use a Time object or nil
+      cursor_time_cache = decoded_cursor # For cache/Redis (ZSET scores), use integer timestamp or nil
 
-      record_ids = fanout_repository.list_fanout(user_id: user.id, cursor: cursor_time, limit: limit)
+      record_ids = fanout_repository.list_fanout(user_id: user.id, cursor: cursor_time_cache, limit: limit)
       if record_ids.empty?
         # Cache miss: fallback to DB query
-        records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
+        records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time_db, limit: limit)
 
         if records.any?
           Rails.logger.info("[SleepRecord] Fallback DB fetch for user #{user.id} with #{records.size} records")
@@ -22,7 +23,7 @@ module SleepRecordUsecase
         end
       else
         records = sleep_record_repository.list_by_ids(ids: record_ids)
-        total_records = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
+        total_records = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: cursor_time_db, limit: limit)
         missing_count = total_records - record_ids.count
 
         # Log only if we expected to find these records (i.e., cache is non-empty)

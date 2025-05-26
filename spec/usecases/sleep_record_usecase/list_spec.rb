@@ -25,8 +25,7 @@ RSpec.describe SleepRecordUsecase::List do
                                        .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
                                        .and_return([record1, record2])
 
-        expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
-                                                .with(user.id)
+        expect(RepairSleepRecordFanoutJob).to receive(:perform_later).with(user.id)
 
         result = usecase.call(limit: 10)
 
@@ -116,7 +115,7 @@ RSpec.describe SleepRecordUsecase::List do
                                  .and_return([2, 3])
 
         expect(sleep_record_repo).to receive(:list_by_user_ids)
-                                       .with(user_ids: [2, 3, 1], cursor: cursor_time, limit: limit)
+                                       .with(user_ids: [2, 3, 1], cursor: Time.at(cursor_time), limit: limit)
                                        .and_return([record1, record2])
 
         expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
