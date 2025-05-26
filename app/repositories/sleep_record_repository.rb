@@ -22,9 +22,7 @@ class SleepRecordRepository < Repository
   end
 
   def find_active_by_user(user_id)
-    SleepRecord.where(user_id: user_id, clock_out: nil)
-               .order(clock_in: :desc)
-               .first
+    SleepRecord.where(user_id: user_id, clock_out: nil).first # Expected only one record, because overlapping will be done by SleepRecord.no_overlapping_active_sessions validation
   end
 
   def find_by_id(id)
