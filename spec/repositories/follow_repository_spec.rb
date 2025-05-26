@@ -78,4 +78,36 @@ RSpec.describe FollowRepository do
       expect(repo.list_follower_ids(user_id: unfollowed_other_user.id, limit: 100)).to eq([])
     end
   end
+
+  describe "#list_followee_ids_batch" do
+    before do
+      @followees = 10.times.map { |i| User.create!(name: "Followee #{i}") }
+      @followees.each { |u| repo.create(follower: follower, followee: u) }
+    end
+
+    it "returns the first N followee IDs and next cursor" do
+      result, cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 3)
+
+      expect(result.size).to eq(3)
+      expect(cursor).to be_present
+    end
+
+    it "returns the next batch using cursor" do
+      first_batch, cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 2)
+      second_batch, next_cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor, limit: 2)
+
+      expect(first_batch & second_batch).to be_empty
+      expect(second_batch.size).to eq(2)
+    end
+
+    it "returns empty array if cursor is beyond end" do
+      batch_1, cursor1 = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 5)
+      batch_2, cursor2 = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor1, limit: 5)
+      final_batch, _ = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor2, limit: 5)
+
+      expect(batch_1.size).to eq(5)
+      expect(batch_2.size).to eq(5)
+      expect(final_batch).to eq([])
+    end
+  end
 end

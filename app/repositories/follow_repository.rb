@@ -18,4 +18,15 @@ class FollowRepository < Repository
   def list_follower_ids(user_id:, limit: FANOUT_LIMIT)
     Follow.where(followee_id: user_id).limit(limit).pluck(:follower_id)
   end
+
+  def list_followee_ids_batch(user_id:, cursor:, limit:)
+    query = Follow.where(follower_id: user_id).order(:id)
+    query = query.where("id > ?", cursor) if cursor.present?
+
+    follows = query.limit(limit)
+    followee_ids = follows.map(&:followee_id)
+    next_cursor = follows.last&.id
+
+    [followee_ids, next_cursor]
+  end
 end
