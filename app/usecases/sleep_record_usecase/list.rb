@@ -3,11 +3,6 @@ module SleepRecordUsecase
     CURSOR_LIMIT = 20
     MISSING_THRESHOLD = 5
 
-    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, include_followees: false)
-      super(user, sleep_record_repository: sleep_record_repository, follow_repository: follow_repository)
-      @include_followees = include_followees
-    end
-
     def call(cursor: nil, limit: CURSOR_LIMIT)
       validate_user!
 
@@ -34,18 +29,6 @@ module SleepRecordUsecase
       failure(e.message)
     rescue => e
       failure("Unexpected error: #{e.message}")
-    end
-
-    private
-
-    attr_reader :include_followees
-
-    def user_ids
-      return [ user.id ] unless include_followees
-
-      followee_ids = follow_repository.list_followee_ids(user_id: user.id)
-      followee_ids << user.id
-      followee_ids
     end
   end
 end
