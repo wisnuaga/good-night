@@ -26,7 +26,7 @@ class RepairSleepRecordCacheJob < ApplicationJob
 
     missing_records = correct_records.reject { |r| existing_ids.include?(r.id) }
     missing_records.each do |record|
-      repo.add_to_feed(user_id: user_id, sleep_record: record)
+      fanout_repo.add_to_feed(user_id: user_id, sleep_record: record)
     end
   rescue => e
     Rails.logger.error("[RepairSleepRecordCacheJob] Failed for user #{user_id}: #{e.message}")
