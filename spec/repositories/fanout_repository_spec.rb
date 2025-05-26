@@ -33,7 +33,7 @@ RSpec.describe FanoutRepository do
         expect(members.length).to eq(1)
         member, score = members.first
         expect(member.to_i).to eq(sleep_record.id)
-        expect(score.to_i).to eq(sleep_record.clock_in.to_i)
+        expect(score.to_i).to eq(sleep_record.sleep_time.to_i)
         expect($redis.ttl(feed_key)).to be > 0
       end
     end
