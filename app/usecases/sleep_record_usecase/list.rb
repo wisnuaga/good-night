@@ -1,8 +1,7 @@
 module SleepRecordUsecase
   class List < Base
-    MIN_THRESHOLD = 3
-    FRACTION = 0.2
-    DEFAULT_LIMIT = 10
+    MIN_THRESHOLD = (ENV['SLEEP_RECORD_MIN_THRESHOLD'] || 3).to_i
+    FRACTION = (ENV['SLEEP_RECORD_MISSING_FRACTION'] || 0.2).to_f
 
     def call(limit:, cursor: nil)
       validate_user!
