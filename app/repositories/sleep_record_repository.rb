@@ -50,6 +50,7 @@ class SleepRecordRepository
     $redis.zrevrange(key, 0, limit - 1).map(&:to_i)
   end
 
+  # TODO: Add UT
   def rebuild_feed_cache(user_id:, user_ids:)
     key = feed_key(user_id: user_id)
     records = list_by_user_ids(user_ids: user_ids, cursor: nil, limit: FEED_LIST_LIMIT)
