@@ -5,23 +5,23 @@ class SleepRecordController < ApplicationController
   # POST /sleep_records/clock_in
   def clock_in
     result = SleepRecordUsecase::ClockIn.new(current_user).call
-    render_result(result, :created)
+    render_result(result: result, status: :created)
   end
 
   # PUT /sleep_records/clock_out
   def clock_out
     result = SleepRecordUsecase::ClockOut.new(current_user).call
-    render_result(result, :ok)
+    render_result(result: result, status: :ok)
   end
 
   # GET /sleep_records
   def index
     result = SleepRecordUsecase::List.new(current_user).call(
-      cursor: index_params[:cursor],
-      limit: index_params[:limit]
+      limit: index_params[:limit],
+      cursor: index_params[:cursor]
     )
 
-    render_result(result, :ok)
+    render_result(result: result, status: :ok)
   end
 
   private
@@ -29,13 +29,12 @@ class SleepRecordController < ApplicationController
   def index_params
     permitted = params.permit(:cursor, :limit)
 
-    # Validate and normalize limit param
     limit = permitted[:limit].to_i
-    if limit <= 0
-      limit = SleepRecordUsecase::List::DEFAULT_LIMIT
-    end
+    limit = SleepRecordUsecase::List::DEFAULT_LIMIT if limit <= 0
 
-    permitted[:limit] = limit
-    permitted
+    {
+      cursor: permitted[:cursor],
+      limit: [ limit, SleepRecordUsecase::List::DEFAULT_LIMIT ].min
+    }
   end
 end

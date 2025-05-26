@@ -12,7 +12,7 @@ module FollowUsecase
     attr_reader :user, :followee_id, :follow_repository, :user_repository, :followee
 
     def followee
-      @followee ||= user_repository.find_by_id(id: followee_id)
+      @followee ||= user_repository.find_by_id(followee_id)
     end
 
     # Returns OpenStruct success or failure, no exceptions

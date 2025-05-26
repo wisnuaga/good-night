@@ -18,7 +18,7 @@ RSpec.describe FollowUsecase::Follow do
   describe "#call" do
     context "when both users exist and not already following" do
       it "returns success" do
-        allow(user_repository).to receive(:find_by_id).with(id: followee.id).and_return(followee)
+        allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(followee)
         allow(follow_repository).to receive(:exists?).with(follower: follower, followee: followee).and_return(false)
         follow = double(:follow, persisted?: true)
         allow(follow_repository).to receive(:create).with(follower: follower, followee: followee).and_return(follow)
@@ -31,7 +31,7 @@ RSpec.describe FollowUsecase::Follow do
 
     context "when already following" do
       it "returns failure" do
-        allow(user_repository).to receive(:find_by_id).with(id: followee.id).and_return(followee)
+        allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(followee)
         allow(follow_repository).to receive(:exists?).with(follower: follower, followee: followee).and_return(true)
 
         result = subject.call
@@ -42,7 +42,7 @@ RSpec.describe FollowUsecase::Follow do
 
     context "when followee not found" do
       it "returns failure" do
-        allow(user_repository).to receive(:find_by_id).with(id: followee.id).and_return(nil)
+        allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(nil)
 
         result = subject.call
         expect(result.success?).to be false
