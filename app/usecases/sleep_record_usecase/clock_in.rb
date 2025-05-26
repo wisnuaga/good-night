@@ -17,8 +17,6 @@ module SleepRecordUsecase
         )
 
       if record.persisted?
-        follower_ids = fetch_follower_ids
-
         if follower_ids.count <= FANOUT_LIMIT
           SleepRecordFanoutJob.perform_later(record.id, follower_ids)
         else
