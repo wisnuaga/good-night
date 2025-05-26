@@ -12,30 +12,22 @@ module SleepRecordUsecase
       validate_user!
 
       record_ids = sleep_record_repository.list_fanout(user_id: user.id)
+      return success({ data: [], next_cursor: nil }) if record_ids.empty?
 
-      if record_ids.empty?
-        # Cache miss — fallback to DB
-        records = sleep_record_repository.list_by_user_ids(user_ids)
-        # RebuildSleepRecordCacheJob.perform_async(user.id, user_ids)
-        return success({ data: records, next_cursor: nil }) # You could add pagination later
-      end
+      cursor_id = Pagination::CursorHelper.decode_cursor(cursor)
+      filtered_ids = cursor_id ? record_ids.select { |id| id < cursor_id } : record_ids
+      limited_ids = filtered_ids.take(limit)
 
-      # Step 2: Apply cursor pagination
-      start_index = cursor ? record_ids.index(cursor.to_i)&.+(1) : 0
-      paged_ids = record_ids.slice(start_index, limit) || []
+      records = sleep_record_repository.find_by_ids(limited_ids)
 
-      # Step 3: Fetch records by paged IDs from DB
-      records_map = SleepRecord.where(id: paged_ids).index_by(&:id)
-      records = paged_ids.map { |id| records_map[id] }.compact
-      missing_ids = paged_ids - records_map.keys
+      # Detect and log missing_ids
+      returned_ids = records.map(&:id)
+      missing_ids = limited_ids - returned_ids
+      Rails.logger.info("[SleepRecord] Missing IDs for user #{user.id}: #{missing_ids.inspect}") unless missing_ids.empty?
 
-      # Step 4: Trigger background job to rebuild if too many missing
-      if missing_ids.size >= MISSING_THRESHOLD
-        # RebuildSleepRecordCacheJob.perform_async(user.id, user_ids)
-      end
-
-      # Step 5: Build next cursor
-      next_cursor = paged_ids[records.size]&.to_s
+      # Prepare next cursor
+      last_id = limited_ids.last
+      next_cursor = filtered_ids.length > limit ? Pagination::CursorHelper.encode_cursor(last_id) : nil
 
       success({ data: records, next_cursor: next_cursor })
     rescue UsecaseError::UserNotFoundError => e
