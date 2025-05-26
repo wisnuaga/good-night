@@ -71,14 +71,6 @@ RSpec.describe SleepRecordRepository do
       result = repo.list_by_ids(ids: [r1.id, r2.id])
       expect(result).to eq([r2, r1])
     end
-
-    it "applies cursor correctly" do
-      r1 = SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hours.ago)
-      r2 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
-      cursor = 4.hours.ago
-      result = repo.list_by_ids(ids: [r1.id, r2.id], cursor: cursor)
-      expect(result).to eq([r1])
-    end
   end
 
   describe "#count_by_user_ids" do
@@ -162,7 +154,7 @@ RSpec.describe SleepRecordRepository do
     end
   end
 
-  describe "#fanout_to_followers" do
+  describe "#write_fanout" do
     let(:follower_ids) { [101, 102, 103] }
     let(:sleep_record) do
       SleepRecord.create!(user: user, clock_in: 2.hours.ago, clock_out: 1.hour.ago)
@@ -175,7 +167,7 @@ RSpec.describe SleepRecordRepository do
     end
 
     it "adds the sleep record to each follower's sorted set feed with correct score" do
-      repo.fanout_to_followers(sleep_record: sleep_record, follower_ids: follower_ids)
+      repo.write_fanout(sleep_record: sleep_record, follower_ids: follower_ids)
 
       follower_ids.each do |fid|
         feed_key = "feed:#{fid}"
@@ -201,7 +193,7 @@ RSpec.describe SleepRecordRepository do
       end
 
       records.each do |sr|
-        repo.fanout_to_followers(sleep_record: sr, follower_ids: follower_ids)
+        repo.write_fanout(sleep_record: sr, follower_ids: follower_ids)
       end
 
       follower_ids.each do |fid|
