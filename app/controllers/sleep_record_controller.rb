@@ -5,13 +5,13 @@ class SleepRecordController < ApplicationController
   # POST /sleep_records/clock_in
   def clock_in
     result = SleepRecordUsecase::ClockIn.new(current_user).call
-    render_result(result, :created)
+    render_result(result: result, status: :created)
   end
 
   # PUT /sleep_records/clock_out
   def clock_out
     result = SleepRecordUsecase::ClockOut.new(current_user).call
-    render_result(result, :ok)
+    render_result(result: result, status: :ok)
   end
 
   # GET /sleep_records
@@ -21,7 +21,7 @@ class SleepRecordController < ApplicationController
       cursor: index_params[:cursor]
     )
 
-    render_result(result, :ok)
+    render_result(result: result, status: :ok)
   end
 
   private

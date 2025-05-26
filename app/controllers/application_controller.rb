@@ -16,9 +16,9 @@ class ApplicationController < ActionController::Base
     render json: { error: "Current user not found" }, status: :unauthorized and return if @current_user.nil?
   end
 
-  def render_result(result, success_status)
+  def render_result(result:, status:)
     if result.success?
-      render json: result.data, status: success_status
+      render json: result.data, status: status
     else
       render json: { error: result.error }, status: :bad_request
     end
