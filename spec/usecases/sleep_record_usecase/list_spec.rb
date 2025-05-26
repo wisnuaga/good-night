@@ -12,16 +12,22 @@ RSpec.describe SleepRecordUsecase::List do
   describe "#call" do
     context "when fanout is empty (fallback to DB)" do
       it "fetches from DB and schedules cache repair" do
-        expect(sleep_record_repo).to receive(:list_fanout).with(user_id: user.id).and_return([])
-        expect(follow_repo).to receive(:list_followee_ids).with(user_id: user.id).and_return([2, 3])
+        expect(sleep_record_repo).to receive(:list_fanout)
+                                       .with(user_id: user.id, cursor: nil, limit: 10)
+                                       .and_return([])
+
+        expect(follow_repo).to receive(:list_followee_ids)
+                                 .with(user_id: user.id)
+                                 .and_return([2, 3])
 
         expect(sleep_record_repo).to receive(:list_by_user_ids)
-                                       .with(user_ids: [2, 3, 1], cursor: nil, limit: described_class::CURSOR_LIMIT)
+                                       .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
                                        .and_return([record1, record2])
 
-        expect(RepairSleepRecordCacheJob).to receive(:perform_later).with(user.id, [2, 3, 1])
+        expect(RepairSleepRecordCacheJob).to receive(:perform_later)
+                                               .with(user.id, [2, 3, 1])
 
-        result = usecase.call
+        result = usecase.call(limit: 10)
 
         expect(result.success?).to be true
         expect(result.data[:data]).to eq([record1, record2])
@@ -37,12 +43,23 @@ RSpec.describe SleepRecordUsecase::List do
           instance_double("SleepRecord", id: 103, clock_in: 1_686_470_400)
         ]
 
-        expect(sleep_record_repo).to receive(:list_fanout).with(user_id: user.id).and_return(fanout_ids)
-        expect(follow_repo).to receive(:list_followee_ids).with(user_id: user.id).and_return([2, 3])
-        expect(sleep_record_repo).to receive(:list_by_ids).with(ids: fanout_ids, cursor: nil, limit: described_class::CURSOR_LIMIT).and_return(records)
-        expect(sleep_record_repo).to receive(:count_by_user_ids).with(user_ids: [2, 3, 1]).and_return(fanout_ids.size)
+        expect(sleep_record_repo).to receive(:list_fanout)
+                                       .with(user_id: user.id, cursor: nil, limit: 10)
+                                       .and_return(fanout_ids)
 
-        result = usecase.call
+        expect(follow_repo).to receive(:list_followee_ids)
+                                 .with(user_id: user.id)
+                                 .and_return([2, 3])
+
+        expect(sleep_record_repo).to receive(:list_by_ids)
+                                       .with(ids: fanout_ids)
+                                       .and_return(records)
+
+        expect(sleep_record_repo).to receive(:count_by_user_ids)
+                                       .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
+                                       .and_return(fanout_ids.size)
+
+        result = usecase.call(limit: 10)
 
         expect(result.success?).to be true
         expect(result.data[:data]).to eq(records)
@@ -52,20 +69,33 @@ RSpec.describe SleepRecordUsecase::List do
     context "when cache is stale (missing_count exceeds threshold)" do
       it "schedules RepairSleepRecordCacheJob" do
         fanout_ids = [101, 102, 103]
-        records = [
-          instance_double("SleepRecord", id: 101, clock_in: 1_686_470_200),
-          instance_double("SleepRecord", id: 102, clock_in: 1_686_470_300),
-          instance_double("SleepRecord", id: 103, clock_in: 1_686_470_400)
-        ]
+        records = fanout_ids.map.with_index do |id, i|
+          instance_double("SleepRecord", id: id, clock_in: 1_686_470_200 + (i * 100))
+        end
 
-        expect(sleep_record_repo).to receive(:list_fanout).with(user_id: user.id).and_return(fanout_ids)
-        expect(follow_repo).to receive(:list_followee_ids).with(user_id: user.id).and_return([2, 3])
-        expect(sleep_record_repo).to receive(:list_by_ids).with(ids: fanout_ids, cursor: nil, limit: described_class::CURSOR_LIMIT).and_return(records)
-        expect(sleep_record_repo).to receive(:count_by_user_ids).with(user_ids: [2, 3, 1]).and_return(fanout_ids.size + described_class::MISSING_THRESHOLD + 1)
+        expect(sleep_record_repo).to receive(:list_fanout)
+                                       .with(user_id: user.id, cursor: nil, limit: 10)
+                                       .and_return(fanout_ids)
 
-        expect(RepairSleepRecordCacheJob).to receive(:perform_later).with(user.id, [2, 3, 1])
+        expect(follow_repo).to receive(:list_followee_ids)
+                                 .with(user_id: user.id)
+                                 .and_return([2, 3])
 
-        result = usecase.call
+        expect(sleep_record_repo).to receive(:list_by_ids)
+                                       .with(ids: fanout_ids)
+                                       .and_return(records)
+
+        # total_records is more than fanout_ids size by threshold + 1
+        total_records = fanout_ids.size + described_class::MIN_THRESHOLD + 1
+
+        expect(sleep_record_repo).to receive(:count_by_user_ids)
+                                       .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
+                                       .and_return(total_records)
+
+        expect(RepairSleepRecordCacheJob).to receive(:perform_later)
+                                               .with(user.id, [2, 3, 1])
+
+        result = usecase.call(limit: 10)
 
         expect(result.success?).to be true
         expect(result.data[:data]).to eq(records)
@@ -78,27 +108,35 @@ RSpec.describe SleepRecordUsecase::List do
         limit = 5
         cursor = Pagination::CursorHelper.encode_cursor(cursor_time)
 
-        expect(sleep_record_repo).to receive(:list_fanout).with(user_id: user.id).and_return([])
-        expect(follow_repo).to receive(:list_followee_ids).with(user_id: user.id).and_return([2, 3])
+        expect(sleep_record_repo).to receive(:list_fanout)
+                                       .with(user_id: user.id, cursor: cursor_time, limit: limit)
+                                       .and_return([])
+
+        expect(follow_repo).to receive(:list_followee_ids)
+                                 .with(user_id: user.id)
+                                 .and_return([2, 3])
+
         expect(sleep_record_repo).to receive(:list_by_user_ids)
                                        .with(user_ids: [2, 3, 1], cursor: cursor_time, limit: limit)
                                        .and_return([record1, record2])
 
-        expect(RepairSleepRecordCacheJob).to receive(:perform_later).with(user.id, [2, 3, 1])
+        expect(RepairSleepRecordCacheJob).to receive(:perform_later)
+                                               .with(user.id, [2, 3, 1])
 
         result = usecase.call(cursor: cursor, limit: limit)
 
         expect(result.success?).to be true
         expect(result.data[:data]).to eq([record1, record2])
-        expect(result.data[:next_cursor]).to be_nil # because result size < limit
+        expect(result.data[:next_cursor]).to be_nil
       end
     end
 
     context "when user is not found" do
       it "returns failure with user error" do
-        allow(sleep_record_repo).to receive(:list_fanout).and_raise(UsecaseError::UserNotFoundError.new("User not found"))
+        allow(sleep_record_repo).to receive(:list_fanout)
+                                      .and_raise(UsecaseError::UserNotFoundError.new("User not found"))
 
-        result = usecase.call
+        result = usecase.call(limit: 10)
 
         expect(result.success?).to be false
         expect(result.error).to eq("User not found")
@@ -107,9 +145,10 @@ RSpec.describe SleepRecordUsecase::List do
 
     context "when unexpected error occurs" do
       it "returns failure with error message" do
-        allow(sleep_record_repo).to receive(:list_fanout).and_raise(StandardError.new("Some error"))
+        allow(sleep_record_repo).to receive(:list_fanout)
+                                      .and_raise(StandardError.new("Some error"))
 
-        result = usecase.call
+        result = usecase.call(limit: 10)
 
         expect(result.success?).to be false
         expect(result.error).to include("Unexpected error: Some error")
