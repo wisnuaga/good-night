@@ -1,7 +1,5 @@
 module SleepRecordUsecase
   class ClockIn < Base
-    FANOUT_LIMIT = (ENV['SLEEP_RECORD_FANOUT_LIMIT'] || 1000).to_i
-
     def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, clock_in: Time.current)
       super(user, sleep_record_repository: sleep_record_repository, follow_repository: follow_repository)
       @clock_in = clock_in
@@ -17,12 +15,10 @@ module SleepRecordUsecase
         )
 
       if record.persisted?
-        follower_ids = fetch_follower_ids
-
-        if follower_ids.count <= FANOUT_LIMIT
+        if follower_ids.count <= Repository::FANOUT_LIMIT
           SleepRecordFanoutJob.perform_later(record.id, follower_ids)
         else
-          Rails.logger.info("[SleepRecordUsecase::ClockIn] Skipping fanout for user #{user.id} due to follower count (#{follower_ids.count}) exceeding limit #{FANOUT_LIMIT}. Will fanout on read.")
+          Rails.logger.info("[SleepRecordUsecase::ClockIn] Skipping fanout for user #{user.id} due to follower count (#{follower_ids.count}) exceeding limit #{Repository::FANOUT_LIMIT}. Will fanout on read.")
         end
 
         success(record)
@@ -44,7 +40,7 @@ module SleepRecordUsecase
     end
 
     def fetch_follower_ids
-      ids = follow_repository.list_follower_ids(user_id: user.id)
+      ids = follow_repository.list_follower_ids(user_id: user.id, limit: Repository::FANOUT_LIMIT + 1) # FANOUT_LIMIT + 1 to handle exceed the limit checking
       (ids + [user.id]).uniq
     end
 

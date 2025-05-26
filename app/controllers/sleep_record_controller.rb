@@ -30,11 +30,11 @@ class SleepRecordController < ApplicationController
     permitted = params.permit(:cursor, :limit)
 
     limit = permitted[:limit].to_i
-    limit = SleepRecordUsecase::List::DEFAULT_LIMIT if limit <= 0
+    limit = Repository::FEED_LIST_LIMIT if limit <= 0
 
     {
       cursor: permitted[:cursor],
-      limit: [ limit, SleepRecordUsecase::List::DEFAULT_LIMIT ].min
+      limit: [ limit, Repository::FEED_LIST_LIMIT ].min
     }
   end
 end

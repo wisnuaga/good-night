@@ -1,36 +1,36 @@
 module SleepRecordUsecase
   class List < Base
-    MIN_THRESHOLD = 3
-    FRACTION = 0.2
-    DEFAULT_LIMIT = 10
+    MIN_THRESHOLD = (ENV['SLEEP_RECORD_MIN_THRESHOLD'] || 3).to_i
+    FRACTION = (ENV['SLEEP_RECORD_MISSING_FRACTION'] || 0.2).to_f
 
     def call(limit:, cursor: nil)
       validate_user!
 
       decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)
-      cursor_time = decoded_cursor&.to_i
+      cursor_time_db = decoded_cursor ? Time.at(decoded_cursor) : nil # For DB queries, use a Time object or nil
+      cursor_time_cache = decoded_cursor # For cache/Redis (ZSET scores), use integer timestamp or nil
 
-      record_ids = fanout_repository.list_fanout(user_id: user.id, cursor: cursor_time, limit: limit)
+      record_ids = fanout_repository.list_fanout(user_id: user.id, cursor: cursor_time_cache, limit: limit)
       if record_ids.empty?
         # Cache miss: fallback to DB query
-        records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
+        records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time_db, limit: limit)
 
         if records.any?
           Rails.logger.info("[SleepRecord] Fallback DB fetch for user #{user.id} with #{records.size} records")
           Rails.logger.info("[SleepRecord] Repairing empty cache...")
 
-          RepairSleepRecordFanoutJob.perform_later(user.id, followee_ids)
+          RepairSleepRecordFanoutJob.perform_later(user.id)
         end
       else
         records = sleep_record_repository.list_by_ids(ids: record_ids)
-        total_records = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
+        total_records = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: cursor_time_db, limit: limit)
         missing_count = total_records - record_ids.count
 
         # Log only if we expected to find these records (i.e., cache is non-empty)
         if missing_count >= missing_threshold(total_records)
           Rails.logger.info("[SleepRecord] Stale cache for user #{user.id}, missing #{missing_count} records — scheduling background rebuild")
 
-          RepairSleepRecordFanoutJob.perform_later(user.id, followee_ids)
+          RepairSleepRecordFanoutJob.perform_later(user.id)
         end
       end
 
@@ -49,7 +49,7 @@ module SleepRecordUsecase
     attr_reader :followee_ids
 
     def fetch_followee_ids
-      ids = follow_repository.list_followee_ids(user_id: user.id)
+      ids = follow_repository.list_followee_ids(user_id: user.id) # Limit by repository layer to avoid large records
       (ids + [user.id]).uniq
     end
 

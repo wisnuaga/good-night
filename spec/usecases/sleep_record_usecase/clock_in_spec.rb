@@ -17,7 +17,7 @@ RSpec.describe SleepRecordUsecase::ClockIn do
 
   before do
     # By default, followers do not include user.id (we add it in code)
-    allow(follow_repo).to receive(:list_follower_ids).with(user_id: user.id).and_return(follower_ids - [user.id])
+    allow(follow_repo).to receive(:list_follower_ids).with(user_id: user.id, limit: Repository::FANOUT_LIMIT + 1).and_return(follower_ids - [user.id])
     allow(sleep_record_repo).to receive(:find_active_by_user).with(user.id).and_return(nil)
     allow(sleep_record_repo).to receive(:create).and_return(persisted_record)
     allow(SleepRecordFanoutJob).to receive(:perform_later)
@@ -44,7 +44,7 @@ RSpec.describe SleepRecordUsecase::ClockIn do
   end
 
   context "when user has no active session and follower count exceeds fanout limit" do
-    let(:large_follower_count) { described_class::FANOUT_LIMIT + 1 }
+    let(:large_follower_count) { Repository::FANOUT_LIMIT + 1 }
     let(:follower_ids) { (2..large_follower_count).to_a } # creates a large array excluding user.id
 
     it "returns success" do
@@ -59,7 +59,7 @@ RSpec.describe SleepRecordUsecase::ClockIn do
 
     it "logs skipping fanout due to large follower count" do
       expect(Rails.logger).to receive(:info).with(
-        "[SleepRecordUsecase::ClockIn] Skipping fanout for user #{user.id} due to follower count (#{large_follower_count}) exceeding limit #{described_class::FANOUT_LIMIT}. Will fanout on read."
+        "[SleepRecordUsecase::ClockIn] Skipping fanout for user #{user.id} due to follower count (#{large_follower_count}) exceeding limit #{Repository::FANOUT_LIMIT}. Will fanout on read."
       )
       usecase.call
     end

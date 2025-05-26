@@ -1,4 +1,4 @@
-class FollowRepository
+class FollowRepository < Repository
   def create(follower:, followee:)
     Follow.create(follower: follower, followee: followee)
   end
@@ -11,11 +11,22 @@ class FollowRepository
     Follow.find_by(follower: follower, followee: followee)
   end
 
-  def list_followee_ids(user_id:)
-    Follow.where(follower_id: user_id).pluck(:followee_id)
+  def list_followee_ids(user_id:, limit: FANOUT_LIMIT)
+    Follow.where(follower_id: user_id).order(:id).limit(limit).pluck(:followee_id)
   end
 
-  def list_follower_ids(user_id:)
-    Follow.where(followee_id: user_id).pluck(:follower_id)
+  def list_follower_ids(user_id:, limit: FANOUT_LIMIT)
+    Follow.where(followee_id: user_id).order(:id).limit(limit).pluck(:follower_id)
+  end
+
+  def list_followee_ids_batch(user_id:, cursor:, limit:)
+    query = Follow.where(follower_id: user_id).order(:id)
+    query = query.where("id > ?", cursor) if cursor.present?
+
+    follows = query.limit(limit)
+    followee_ids = follows.map(&:followee_id)
+    next_cursor = follows.last&.id
+
+    [followee_ids, next_cursor]
   end
 end
