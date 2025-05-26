@@ -29,16 +29,19 @@ module SleepRecordUsecase
 
     private
 
-    attr_reader :clock_out
+    attr_reader :clock_out, :follower_ids
 
     def validate_active_session!
       raise UsecaseError::ActiveSleepSessionNotFound if session.nil?
     end
 
+    def fetch_follower_ids
+      ids = follow_repository.list_follower_ids(user_id: user.id)
+      (ids + [user.id]).uniq
+    end
+
     def follower_ids
-      followee_ids = follow_repository.list_follower_ids(user_id: user.id)
-      followee_ids << user.id
-      followee_ids
+      @follower_ids ||= fetch_follower_ids
     end
   end
 end

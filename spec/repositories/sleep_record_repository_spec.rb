@@ -84,14 +84,28 @@ RSpec.describe SleepRecordRepository do
   describe "#count_by_user_ids" do
     let(:user) { create(:user) }
 
-    it "counts records after given clock_in time" do
-      SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hour)
-      count = repo.count_by_user_ids(user_ids: [user.id], clock_in: 1.day.ago)
-      expect(count).to eq(1)
+    before do
+      stub_const("SleepRecordRepository::FEED_TTL_SECONDS", 86400)
+      stub_const("SleepRecordRepository::FEED_LIST_LIMIT", 2)
     end
 
-    it "returns 0 if no records match" do
-      count = repo.count_by_user_ids(user_ids: [user.id], clock_in: Time.current)
+    it "counts records after FEED_SINCE_LIMIT and caps at FEED_LIST_LIMIT" do
+      SleepRecord.create!(user: user, clock_in: 2.days.ago, clock_out: 1.day.ago)  # old record, before limit
+      SleepRecord.create!(user: user, clock_in: 20.hours.ago, clock_out: 19.hours.ago)
+      SleepRecord.create!(user: user, clock_in: 18.hours.ago, clock_out: 17.hours.ago)
+      SleepRecord.create!(user: user, clock_in: 16.hours.ago, clock_out: 15.hours.ago)
+
+      count = repo.count_by_user_ids(user_ids: [user.id])
+
+      # We have 3 recent records, but FEED_LIST_LIMIT is 2, so count is capped to 2
+      expect(count).to eq(2)
+    end
+
+    it "returns 0 if no records after FEED_SINCE_LIMIT" do
+      SleepRecord.create!(user: user, clock_in: 2.days.ago, clock_out: 1.day.ago)
+
+      count = repo.count_by_user_ids(user_ids: [user.id])
+
       expect(count).to eq(0)
     end
   end
