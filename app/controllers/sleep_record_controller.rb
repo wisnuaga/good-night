@@ -17,8 +17,7 @@ class SleepRecordController < ApplicationController
   # GET /sleep_records
   def index
     result = SleepRecordUsecase::List.new(
-      current_user,
-      include_followees: index_params[:include_followees]
+      current_user
     ).call(
       cursor: params[:cursor],
       limit: params[:limit]&.to_i.presence || SleepRecordUsecase::List::DEFAULT_LIMIT
