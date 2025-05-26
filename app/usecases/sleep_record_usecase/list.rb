@@ -4,7 +4,7 @@ module SleepRecordUsecase
     MISSING_THRESHOLD = 5
     DEFAULT_LIMIT = 10
 
-    def call(limit, cursor: nil)
+    def call(limit:, cursor: nil)
       validate_user!
 
       decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)
@@ -26,7 +26,7 @@ module SleepRecordUsecase
         missing_count = record_ids.count - records.count
 
         # Log only if we expected to find these records (i.e., cache is non-empty)
-        if missing_count >= MISSING_THRESHOLD && record_ids.any?
+        if missing_count >= MISSING_THRESHOLD
           Rails.logger.info("[SleepRecord] Stale cache for user #{user.id}, missing #{missing_count} records — scheduling background rebuild")
 
           RepairSleepRecordCacheJob.perform_later(user.id, followee_ids)
