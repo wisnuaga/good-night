@@ -10,7 +10,7 @@ module SleepRecordUsecase
       decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)
       cursor_time = decoded_cursor&.to_i
 
-      record_ids = sleep_record_repository.list_fanout(user_id: user.id)
+      record_ids = sleep_record_repository.list_fanout(user_id: user.id, cursor: cursor_time, limit: limit)
       if record_ids.empty?
         # Cache miss: fallback to DB query
         records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
@@ -22,9 +22,8 @@ module SleepRecordUsecase
           RepairSleepRecordCacheJob.perform_later(user.id, followee_ids)
         end
       else
-        records = sleep_record_repository.list_by_ids(ids: record_ids, cursor: cursor_time, limit: limit)
-        total_ids = sleep_record_repository.count_by_user_ids(user_ids: followee_ids)
-        missing_count = total_ids - record_ids.count
+        records = sleep_record_repository.list_by_ids(ids: record_ids)
+        missing_count = record_ids.count - records.count
 
         if missing_count >= MISSING_THRESHOLD
           Rails.logger.info("[SleepRecord] Stale cache for user #{user.id}, missing #{missing_count} records — scheduling background rebuild")
