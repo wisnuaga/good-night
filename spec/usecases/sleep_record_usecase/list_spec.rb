@@ -14,8 +14,8 @@ RSpec.describe SleepRecordUsecase::List do
     context "when fanout is empty (fallback to DB)" do
       it "fetches from DB and schedules cache repair" do
         expect(fanout_repo).to receive(:list_fanout)
-                                       .with(user_id: user.id, cursor: nil, limit: 10)
-                                       .and_return([])
+                                 .with(user_id: user.id, cursor: nil, limit: 10)
+                                 .and_return([])
 
         expect(follow_repo).to receive(:list_followee_ids)
                                  .with(user_id: user.id)
@@ -26,7 +26,7 @@ RSpec.describe SleepRecordUsecase::List do
                                        .and_return([record1, record2])
 
         expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
-                                               .with(user.id, [2, 3, 1])
+                                                .with(user.id)
 
         result = usecase.call(limit: 10)
 
@@ -45,8 +45,8 @@ RSpec.describe SleepRecordUsecase::List do
         ]
 
         expect(fanout_repo).to receive(:list_fanout)
-                                       .with(user_id: user.id, cursor: nil, limit: 10)
-                                       .and_return(fanout_ids)
+                                 .with(user_id: user.id, cursor: nil, limit: 10)
+                                 .and_return(fanout_ids)
 
         expect(follow_repo).to receive(:list_followee_ids)
                                  .with(user_id: user.id)
@@ -75,8 +75,8 @@ RSpec.describe SleepRecordUsecase::List do
         end
 
         expect(fanout_repo).to receive(:list_fanout)
-                                       .with(user_id: user.id, cursor: nil, limit: 10)
-                                       .and_return(fanout_ids)
+                                 .with(user_id: user.id, cursor: nil, limit: 10)
+                                 .and_return(fanout_ids)
 
         expect(follow_repo).to receive(:list_followee_ids)
                                  .with(user_id: user.id)
@@ -86,15 +86,13 @@ RSpec.describe SleepRecordUsecase::List do
                                        .with(ids: fanout_ids)
                                        .and_return(records)
 
-        # total_records is more than fanout_ids size by threshold + 1
         total_records = fanout_ids.size + described_class::MIN_THRESHOLD + 1
-
         expect(sleep_record_repo).to receive(:count_by_user_ids)
                                        .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
                                        .and_return(total_records)
 
         expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
-                                               .with(user.id, [2, 3, 1])
+                                                .with(user.id)
 
         result = usecase.call(limit: 10)
 
@@ -110,8 +108,8 @@ RSpec.describe SleepRecordUsecase::List do
         cursor = Pagination::CursorHelper.encode_cursor(cursor_time)
 
         expect(fanout_repo).to receive(:list_fanout)
-                                       .with(user_id: user.id, cursor: cursor_time, limit: limit)
-                                       .and_return([])
+                                 .with(user_id: user.id, cursor: cursor_time, limit: limit)
+                                 .and_return([])
 
         expect(follow_repo).to receive(:list_followee_ids)
                                  .with(user_id: user.id)
@@ -122,7 +120,7 @@ RSpec.describe SleepRecordUsecase::List do
                                        .and_return([record1, record2])
 
         expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
-                                               .with(user.id, [2, 3, 1])
+                                                .with(user.id)
 
         result = usecase.call(cursor: cursor, limit: limit)
 
