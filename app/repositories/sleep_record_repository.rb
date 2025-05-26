@@ -14,11 +14,6 @@ class SleepRecordRepository
     query.order(clock_in: :desc).limit(limit)
   end
 
-  def list_by_user_id(user_id:, clock_in: FEED_TTL_SECONDS.seconds.ago, limit: FEED_LIST_LIMIT)
-    query = SleepRecord.where(user_id: user_id).where('clock_in > ?', clock_in)
-    query.order(clock_in: :desc).limit(limit)
-  end
-
   def count_by_user_ids(user_ids:, clock_in: FEED_TTL_SECONDS.seconds.ago, limit: FEED_LIST_LIMIT)
     query = SleepRecord.where(user_id: user_ids).where('clock_in > ?', clock_in)
     query.order(clock_in: :desc).limit(limit).pluck(:id).count
