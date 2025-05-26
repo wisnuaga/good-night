@@ -1,6 +1,5 @@
 class FanoutRepository < Repository
   # Fan out a sleep record to follower feeds in Redis sorted sets
-  #
   # Stores records sorted by clock_in timestamp to support efficient feed retrieval.
   def write_fanout(sleep_record:, follower_ids:)
     follower_ids.each do |follower_id|
