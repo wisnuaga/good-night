@@ -11,11 +11,11 @@ class FollowRepository < Repository
     Follow.find_by(follower: follower, followee: followee)
   end
 
-  def list_followee_ids(user_id:)
-    Follow.where(follower_id: user_id).pluck(:followee_id)
+  def list_followee_ids(user_id:, limit: FANOUT_LIMIT)
+    Follow.where(follower_id: user_id).limit(limit).pluck(:followee_id)
   end
 
-  def list_follower_ids(user_id:, limit:)
+  def list_follower_ids(user_id:, limit: FANOUT_LIMIT)
     Follow.where(followee_id: user_id).limit(limit).pluck(:follower_id)
   end
 end

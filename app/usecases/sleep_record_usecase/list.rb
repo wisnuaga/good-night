@@ -49,7 +49,7 @@ module SleepRecordUsecase
     attr_reader :followee_ids
 
     def fetch_followee_ids
-      ids = follow_repository.list_followee_ids(user_id: user.id)
+      ids = follow_repository.list_followee_ids(user_id: user.id) # Limit by repository layer to avoid large records
       (ids + [user.id]).uniq
     end
 
