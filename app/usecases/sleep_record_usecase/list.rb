@@ -26,8 +26,6 @@ module SleepRecordUsecase
         total_records = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
         missing_count = total_records - record_ids.count
 
-        puts total_records, record_ids.count, missing_count, missing_threshold(total_records)
-
         # Log only if we expected to find these records (i.e., cache is non-empty)
         if missing_count >= missing_threshold(total_records)
           Rails.logger.info("[SleepRecord] Stale cache for user #{user.id}, missing #{missing_count} records — scheduling background rebuild")
