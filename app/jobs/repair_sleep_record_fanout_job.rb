@@ -17,19 +17,19 @@ class RepairSleepRecordFanoutJob < ApplicationJob
     cursor_time = nil
 
     loop do
-      followees, followee_cursor = follow_repository.list_followee_ids_batch(
+      followee_ids, followee_cursor = follow_repository.list_followee_ids_batch(
         user_id: user_id,
         cursor: followee_cursor,
         limit: Repository::FANOUT_LIMIT
       )
 
-      break if followees.empty?
+      break if followee_ids.empty?
 
       batch_limit = SleepRecordRepository::FEED_LIST_LIMIT - correct_records.size
       break if batch_limit <= 0
 
       records = sleep_record_repo.list_by_user_ids(
-        user_ids: followees + [user_id], # include self
+        user_ids: followee_ids + [user_id], # include self
         cursor: cursor_time,
         limit: batch_limit
       )
