@@ -14,6 +14,11 @@ class SleepRecordRepository
     query.order(clock_in: :desc).limit(limit)
   end
 
+  def list_by_user_id(user_id:, clock_in: FEED_TTL_SECONDS.seconds.ago, limit: FEED_LIST_LIMIT)
+    query = SleepRecord.where(user_id: user_id).where('clock_in > ?', clock_in)
+    query.order(clock_in: :desc).limit(limit)
+  end
+
   def count_by_user_ids(user_ids:, clock_in: FEED_TTL_SECONDS.seconds.ago, limit: FEED_LIST_LIMIT)
     query = SleepRecord.where(user_id: user_ids).where('clock_in > ?', clock_in)
     query.order(clock_in: :desc).limit(limit).pluck(:id).count
@@ -48,17 +53,6 @@ class SleepRecordRepository
   def list_fanout(user_id:, limit: FEED_LIST_LIMIT)
     key = feed_key(user_id: user_id)
     $redis.zrevrange(key, 0, limit - 1).map(&:to_i)
-  end
-
-  # TODO: Add UT
-  def rebuild_feed_cache(user_id:, user_ids:)
-    key = feed_key(user_id: user_id)
-    records = list_by_user_ids(user_ids: user_ids, cursor: nil, limit: FEED_LIST_LIMIT)
-    $redis.del(key)
-    records.each do |record|
-      $redis.zadd(key, record.clock_in.to_i, record.id)
-    end
-    $redis.expire(key, FEED_TTL_SECONDS)
   end
 
   private
