@@ -12,6 +12,12 @@ module SleepRecordUsecase
       session.clock_out = clock_out
 
       if session.save
+        if follower_ids.count <= Repository::FANOUT_LIMIT
+          SleepRecordFanoutJob.perform_later(session.id, follower_ids)
+        else
+          Rails.logger.info("[SleepRecordUsecase::ClockIn] Skipping fanout for user #{user.id} due to follower count (#{follower_ids.count}) exceeding limit #{Repository::FANOUT_LIMIT}. Will fanout on read.")
+        end
+
         success(session)
       else
         failure("Failed to clock out")
@@ -28,6 +34,15 @@ module SleepRecordUsecase
 
     def validate_active_session!
       raise UsecaseError::ActiveSleepSessionNotFound if session.nil?
+    end
+
+    def fetch_follower_ids
+      ids = follow_repository.list_follower_ids(user_id: user.id, limit: Repository::FANOUT_LIMIT + 1) # FANOUT_LIMIT + 1 to handle exceed the limit checking
+      (ids + [user.id]).uniq
+    end
+
+    def follower_ids
+      @follower_ids ||= fetch_follower_ids
     end
   end
 end
