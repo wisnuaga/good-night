@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe RepairSleepRecordCacheJob, type: :job do
+RSpec.describe RepairSleepRecordFanoutJob, type: :job do
   let(:user_id) { 1 }
   let(:followee_ids) { [2, 3] }
   let(:lock_key) { "repair_lock:#{user_id}" }
@@ -78,7 +78,7 @@ RSpec.describe RepairSleepRecordCacheJob, type: :job do
 
       it "logs the error" do
         described_class.perform_now(user_id, followee_ids)
-        expect(Rails.logger).to have_received(:error).with("[RepairSleepRecordCacheJob] Failed for user #{user_id}: boom")
+        expect(Rails.logger).to have_received(:error).with("[RepairSleepRecordFanoutJob] Failed for user #{user_id}: boom")
       end
     end
   end

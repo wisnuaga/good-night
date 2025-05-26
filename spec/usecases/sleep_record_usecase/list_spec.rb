@@ -25,7 +25,7 @@ RSpec.describe SleepRecordUsecase::List do
                                        .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
                                        .and_return([record1, record2])
 
-        expect(RepairSleepRecordCacheJob).to receive(:perform_later)
+        expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
                                                .with(user.id, [2, 3, 1])
 
         result = usecase.call(limit: 10)
@@ -68,7 +68,7 @@ RSpec.describe SleepRecordUsecase::List do
     end
 
     context "when cache is stale (missing_count exceeds threshold)" do
-      it "schedules RepairSleepRecordCacheJob" do
+      it "schedules RepairSleepRecordFanoutJob" do
         fanout_ids = [101, 102, 103]
         records = fanout_ids.map.with_index do |id, i|
           instance_double("SleepRecord", id: id, clock_in: 1_686_470_200 + (i * 100))
@@ -93,7 +93,7 @@ RSpec.describe SleepRecordUsecase::List do
                                        .with(user_ids: [2, 3, 1], cursor: nil, limit: 10)
                                        .and_return(total_records)
 
-        expect(RepairSleepRecordCacheJob).to receive(:perform_later)
+        expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
                                                .with(user.id, [2, 3, 1])
 
         result = usecase.call(limit: 10)
@@ -121,7 +121,7 @@ RSpec.describe SleepRecordUsecase::List do
                                        .with(user_ids: [2, 3, 1], cursor: cursor_time, limit: limit)
                                        .and_return([record1, record2])
 
-        expect(RepairSleepRecordCacheJob).to receive(:perform_later)
+        expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
                                                .with(user.id, [2, 3, 1])
 
         result = usecase.call(cursor: cursor, limit: limit)

@@ -1,4 +1,4 @@
-class RepairSleepRecordCacheJob < ApplicationJob
+class RepairSleepRecordFanoutJob < ApplicationJob
   queue_as :default
 
   def perform(user_id, followee_ids)
@@ -29,6 +29,6 @@ class RepairSleepRecordCacheJob < ApplicationJob
       fanout_repo.add_to_feed(user_id: user_id, sleep_record: record)
     end
   rescue => e
-    Rails.logger.error("[RepairSleepRecordCacheJob] Failed for user #{user_id}: #{e.message}")
+    Rails.logger.error("[RepairSleepRecordFanoutJob] Failed for user #{user_id}: #{e.message}")
   end
 end
