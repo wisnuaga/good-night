@@ -47,11 +47,11 @@ class SleepRecordRepository
 
   def rebuild_feed_cache(user_id:, user_ids:)
     key = feed_key(user_id: user_id)
-    # Fetch latest feed IDs from DB (cursor: nil to get newest)
     records = list_by_user_ids(user_ids: user_ids, cursor: nil, limit: FEED_LIST_LIMIT)
-    record_ids = records.map(&:id)
     $redis.del(key)
-    $redis.lpush(key, record_ids.reverse) unless record_ids.empty?  # LPUSH order reversed for correct order
+    records.each do |record|
+      $redis.zadd(key, record.clock_in.to_i, record.id)
+    end
     $redis.expire(key, FEED_TTL_SECONDS)
   end
 
