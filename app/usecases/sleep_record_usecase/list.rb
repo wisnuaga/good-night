@@ -4,7 +4,7 @@ module SleepRecordUsecase
     MISSING_THRESHOLD = 5
     DEFAULT_LIMIT = 10
 
-    def call(cursor: nil, limit: CURSOR_LIMIT)
+    def call(limit, cursor: nil)
       validate_user!
 
       decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)

@@ -17,8 +17,8 @@ class SleepRecordController < ApplicationController
   # GET /sleep_records
   def index
     result = SleepRecordUsecase::List.new(current_user).call(
-      cursor: index_params[:cursor],
-      limit: index_params[:limit]
+      limit: index_params[:limit],
+      cursor: index_params[:cursor]
     )
 
     render_result(result, :ok)
@@ -29,13 +29,12 @@ class SleepRecordController < ApplicationController
   def index_params
     permitted = params.permit(:cursor, :limit)
 
-    # Validate and normalize limit param
     limit = permitted[:limit].to_i
-    if limit <= 0
-      limit = SleepRecordUsecase::List::DEFAULT_LIMIT
-    end
+    limit = SleepRecordUsecase::List::DEFAULT_LIMIT if limit <= 0
 
-    permitted[:limit] = limit
-    permitted
+    {
+      cursor: permitted[:cursor],
+      limit: [ limit, SleepRecordUsecase::List::DEFAULT_LIMIT ].min
+    }
   end
 end
