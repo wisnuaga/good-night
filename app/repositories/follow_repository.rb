@@ -1,4 +1,4 @@
-class FollowRepository
+class FollowRepository < Repository
   def create(follower:, followee:)
     Follow.create(follower: follower, followee: followee)
   end
@@ -15,7 +15,7 @@ class FollowRepository
     Follow.where(follower_id: user_id).pluck(:followee_id)
   end
 
-  def list_follower_ids(user_id:)
-    Follow.where(followee_id: user_id).pluck(:follower_id)
+  def list_follower_ids(user_id:, limit:)
+    Follow.where(followee_id: user_id).limit(limit).pluck(:follower_id)
   end
 end
