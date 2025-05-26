@@ -1,5 +1,3 @@
-require "ostruct"
-
 module SleepRecordUsecase
   class ClockOut < Base
     def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, clock_out: Time.current)
@@ -14,9 +12,6 @@ module SleepRecordUsecase
       session.clock_out = clock_out
 
       if session.save
-        # TODO: Move to background job
-        sleep_record_repository.fanout_to_followers(sleep_record: session, follower_ids: follower_ids)
-
         success(session)
       else
         failure("Failed to clock out")
@@ -29,19 +24,10 @@ module SleepRecordUsecase
 
     private
 
-    attr_reader :clock_out, :follower_ids
+    attr_reader :clock_out
 
     def validate_active_session!
       raise UsecaseError::ActiveSleepSessionNotFound if session.nil?
-    end
-
-    def fetch_follower_ids
-      ids = follow_repository.list_follower_ids(user_id: user.id)
-      (ids + [user.id]).uniq
-    end
-
-    def follower_ids
-      @follower_ids ||= fetch_follower_ids
     end
   end
 end
