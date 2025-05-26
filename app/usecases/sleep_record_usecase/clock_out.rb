@@ -15,7 +15,7 @@ module SleepRecordUsecase
 
       if session.save
         # TODO: Move to background job
-        sleep_record_repository.fanout_to_followers(sleep_record_id: session.id, follower_ids: follower_ids)
+        sleep_record_repository.fanout_to_followers(sleep_record: session, follower_ids: follower_ids)
 
         success(session)
       else
