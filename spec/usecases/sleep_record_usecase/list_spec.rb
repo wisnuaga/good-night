@@ -4,7 +4,8 @@ RSpec.describe SleepRecordUsecase::List do
   let(:user) { instance_double("User", id: 1) }
   let(:sleep_record_repo) { instance_double(SleepRecordRepository) }
   let(:follow_repo) { instance_double(FollowRepository) }
-  let(:usecase) { described_class.new(user, sleep_record_repository: sleep_record_repo, follow_repository: follow_repo) }
+  let(:fanout_repo) { instance_double(FanoutRepository) }
+  let(:usecase) { described_class.new(user, sleep_record_repository: sleep_record_repo, follow_repository: follow_repo, fanout_repository: fanout_repo) }
 
   let(:record1) { instance_double("SleepRecord", id: 101, clock_in: 1_686_470_000) }
   let(:record2) { instance_double("SleepRecord", id: 102, clock_in: 1_686_470_100) }
@@ -12,7 +13,7 @@ RSpec.describe SleepRecordUsecase::List do
   describe "#call" do
     context "when fanout is empty (fallback to DB)" do
       it "fetches from DB and schedules cache repair" do
-        expect(sleep_record_repo).to receive(:list_fanout)
+        expect(fanout_repo).to receive(:list_fanout)
                                        .with(user_id: user.id, cursor: nil, limit: 10)
                                        .and_return([])
 
@@ -43,7 +44,7 @@ RSpec.describe SleepRecordUsecase::List do
           instance_double("SleepRecord", id: 103, clock_in: 1_686_470_400)
         ]
 
-        expect(sleep_record_repo).to receive(:list_fanout)
+        expect(fanout_repo).to receive(:list_fanout)
                                        .with(user_id: user.id, cursor: nil, limit: 10)
                                        .and_return(fanout_ids)
 
@@ -73,7 +74,7 @@ RSpec.describe SleepRecordUsecase::List do
           instance_double("SleepRecord", id: id, clock_in: 1_686_470_200 + (i * 100))
         end
 
-        expect(sleep_record_repo).to receive(:list_fanout)
+        expect(fanout_repo).to receive(:list_fanout)
                                        .with(user_id: user.id, cursor: nil, limit: 10)
                                        .and_return(fanout_ids)
 
@@ -108,7 +109,7 @@ RSpec.describe SleepRecordUsecase::List do
         limit = 5
         cursor = Pagination::CursorHelper.encode_cursor(cursor_time)
 
-        expect(sleep_record_repo).to receive(:list_fanout)
+        expect(fanout_repo).to receive(:list_fanout)
                                        .with(user_id: user.id, cursor: cursor_time, limit: limit)
                                        .and_return([])
 
@@ -133,8 +134,8 @@ RSpec.describe SleepRecordUsecase::List do
 
     context "when user is not found" do
       it "returns failure with user error" do
-        allow(sleep_record_repo).to receive(:list_fanout)
-                                      .and_raise(UsecaseError::UserNotFoundError.new("User not found"))
+        allow(fanout_repo).to receive(:list_fanout)
+                                .and_raise(UsecaseError::UserNotFoundError.new("User not found"))
 
         result = usecase.call(limit: 10)
 
@@ -145,8 +146,8 @@ RSpec.describe SleepRecordUsecase::List do
 
     context "when unexpected error occurs" do
       it "returns failure with error message" do
-        allow(sleep_record_repo).to receive(:list_fanout)
-                                      .and_raise(StandardError.new("Some error"))
+        allow(fanout_repo).to receive(:list_fanout)
+                                .and_raise(StandardError.new("Some error"))
 
         result = usecase.call(limit: 10)
 
