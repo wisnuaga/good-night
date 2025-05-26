@@ -12,11 +12,11 @@ class FollowRepository < Repository
   end
 
   def list_followee_ids(user_id:, limit: FANOUT_LIMIT)
-    Follow.where(follower_id: user_id).limit(limit).pluck(:followee_id)
+    Follow.where(follower_id: user_id).order(:id).limit(limit).pluck(:followee_id)
   end
 
   def list_follower_ids(user_id:, limit: FANOUT_LIMIT)
-    Follow.where(followee_id: user_id).limit(limit).pluck(:follower_id)
+    Follow.where(followee_id: user_id).order(:id).limit(limit).pluck(:follower_id)
   end
 
   def list_followee_ids_batch(user_id:, cursor:, limit:)
