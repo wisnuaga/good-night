@@ -18,7 +18,7 @@ class RepairSleepRecordCacheJob < ApplicationJob
       break if records.empty?
 
       correct_records.concat(records)
-      cursor = records.last.clock_in.to_i
+      cursor = records.last.clock_in
     end
 
     correct_records.uniq!(&:id)
