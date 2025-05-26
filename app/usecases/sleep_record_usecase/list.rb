@@ -17,7 +17,9 @@ module SleepRecordUsecase
 
         if records.any?
           Rails.logger.info("[SleepRecord] Fallback DB fetch for user #{user.id} with #{records.size} records")
-          Rails.logger.info("[SleepRecord] TODO: Trigger cache rebuild (empty cache, but DB has data)")
+          Rails.logger.info("[SleepRecord] Repairing empty cache...")
+
+          RepairSleepRecordCacheJob.perform_later(user.id, followee_ids)
         end
       else
         records = sleep_record_repository.list_by_ids(ids: record_ids, cursor: cursor_time, limit: limit)
@@ -25,7 +27,9 @@ module SleepRecordUsecase
         missing_count = total_ids - record_ids.count
 
         if missing_count >= MISSING_THRESHOLD
-          Rails.logger.info("[SleepRecord] TODO: Trigger rebuild job for user #{user.id} (stale cache) with total #{missing_count}")
+          Rails.logger.info("[SleepRecord] Stale cache for user #{user.id}, missing #{missing_count} records — scheduling background rebuild")
+
+          RepairSleepRecordCacheJob.perform_later(user.id, followee_ids)
         end
       end
 
