@@ -45,10 +45,15 @@ module SleepRecordUsecase
 
     private
 
-    def followee_ids
+    attr_reader :followee_ids
+
+    def fetch_followee_ids
       follow_ids = follow_repository.list_followee_ids(user_id: user.id)
-      follow_ids << user.id
-      follow_ids
+      (follow_ids + [user.id]).uniq
+    end
+
+    def followee_ids
+      @followee_ids ||= fetch_followee_ids
     end
   end
 end
