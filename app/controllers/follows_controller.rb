@@ -7,7 +7,7 @@ class FollowsController < ApplicationController
     if current_user.id == params[:id].to_i
       render_result(
         result: OpenStruct.new(success?: false, error: "Cannot follow yourself"),
-        status: bad_request
+        status: :bad_request
       )
       return
     end
