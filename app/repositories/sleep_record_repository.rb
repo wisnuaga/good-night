@@ -36,9 +36,4 @@ class SleepRecordRepository < Repository
     )
     sleep_record.save ? sleep_record : nil
   end
-
-  # Delete a sleep record
-  def delete(sleep_record)
-    sleep_record.destroy
-  end
 end
