@@ -19,7 +19,10 @@ class SleepRecordController < ApplicationController
     result = SleepRecordUsecase::List.new(
       current_user,
       include_followees: index_params[:include_followees]
-    ).call
+    ).call(
+      cursor: params[:cursor],
+      limit: params[:limit]&.to_i.presence || SleepRecordUsecase::List::DEFAULT_LIMIT
+    )
 
     render_result(result, :ok)
   end
