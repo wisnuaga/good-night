@@ -26,6 +26,7 @@ class SleepRecordRepository
 
   # Count how many records exist for given user_ids within cutoff
   def count_by_user_ids(user_ids:)
+    puts "#{feed_since_limit}"
     total = SleepRecord.where(user_id: user_ids)
                        .where('clock_in >= ?', feed_since_limit)
                        .count
