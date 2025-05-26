@@ -2,23 +2,23 @@ class SleepRecordRepository < Repository
   def list_by_user_ids(user_ids:, cursor: nil, limit: FEED_LIST_LIMIT)
     query = SleepRecord.where(user_id: user_ids)
                        .where('clock_in >= ?', feed_since_limit)
-                       .where.not(clock_out: nil)
-    query = query.where('clock_in < ?', cursor) if cursor
-    query.order(clock_in: :desc).limit(limit)
+                       .where.not(sleep_time: nil)
+    query = query.where('sleep_time < ?', cursor) if cursor
+    query.order(sleep_time: :desc).limit(limit)
   end
 
   def count_by_user_ids(user_ids:, cursor: nil, limit: FEED_LIST_LIMIT)
     query = SleepRecord.where(user_id: user_ids)
                        .where('clock_in >= ?', feed_since_limit)
-                       .where.not(clock_out: nil)
-    query = query.where('clock_in < ?', cursor) if cursor
-    total = query.order(clock_in: :desc).count
+                       .where.not(sleep_time: nil)
+    query = query.where('sleep_time < ?', cursor) if cursor
+    total = query.order(sleep_time: :desc).count
 
     [ total, limit ].min
   end
 
   def list_by_ids(ids:, limit: FEED_LIST_LIMIT)
-    SleepRecord.where(id: ids).order(clock_in: :desc).limit(limit)
+    SleepRecord.where(id: ids).limit(limit)
   end
 
   def find_active_by_user(user_id)
