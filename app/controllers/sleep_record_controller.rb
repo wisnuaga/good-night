@@ -16,10 +16,10 @@ class SleepRecordController < ApplicationController
 
   # GET /sleep_records
   def index
-    result = SleepRecordUsecase::List.new(
-      current_user,
-      include_followees: index_params[:include_followees]
-    ).call
+    result = SleepRecordUsecase::List.new(current_user).call(
+      cursor: index_params[:cursor],
+      limit: index_params[:limit]
+    )
 
     render_result(result, :ok)
   end
@@ -27,8 +27,15 @@ class SleepRecordController < ApplicationController
   private
 
   def index_params
-    params.permit(:include_followees).tap do |params|
-      params[:include_followees] = params[:include_followees] == "true"
+    permitted = params.permit(:cursor, :limit)
+
+    # Validate and normalize limit param
+    limit = permitted[:limit].to_i
+    if limit <= 0
+      limit = SleepRecordUsecase::List::DEFAULT_LIMIT
     end
+
+    permitted[:limit] = limit
+    permitted
   end
 end

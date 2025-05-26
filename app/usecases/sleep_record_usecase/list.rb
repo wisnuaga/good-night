@@ -1,15 +1,38 @@
 module SleepRecordUsecase
   class List < Base
-    def initialize(user, sleep_record_repository: SleepRecordRepository.new, follow_repository: FollowRepository.new, include_followees: false)
-      super(user, sleep_record_repository: sleep_record_repository, follow_repository: follow_repository)
-      @include_followees = include_followees
-    end
+    CURSOR_LIMIT = 20
+    MISSING_THRESHOLD = 5
+    DEFAULT_LIMIT = 10
 
-    def call
+    def call(cursor: nil, limit: CURSOR_LIMIT)
       validate_user!
 
-      sleep_records = sleep_record_repository.list_by_user_ids(user_ids)
-      success({ data: sleep_records }) # TODO: add pagination
+      decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)
+      cursor_time = decoded_cursor&.to_i
+
+      record_ids = sleep_record_repository.list_fanout(user_id: user.id)
+      if record_ids.empty?
+        # Cache miss: fallback to DB query
+        records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
+
+        if records.any?
+          Rails.logger.info("[SleepRecord] Fallback DB fetch for user #{user.id} with #{records.size} records")
+          Rails.logger.info("[SleepRecord] TODO: Trigger cache rebuild (empty cache, but DB has data)")
+        end
+      else
+        records = sleep_record_repository.list_by_ids(ids: record_ids, cursor: cursor_time, limit: limit)
+        total_ids = sleep_record_repository.count_by_user_ids(user_ids: followee_ids)
+        missing_count = total_ids - record_ids.count
+
+        if missing_count >= MISSING_THRESHOLD
+          Rails.logger.info("[SleepRecord] TODO: Trigger rebuild job for user #{user.id} (stale cache) with total #{missing_count}")
+        end
+      end
+
+      last_clock_in = records.last&.clock_in
+      next_cursor = records.length == limit && last_clock_in ? Pagination::CursorHelper.encode_cursor(last_clock_in.to_i) : nil
+
+      success({ data: records, next_cursor: next_cursor })
     rescue UsecaseError::UserNotFoundError => e
       failure(e.message)
     rescue => e
@@ -18,14 +41,10 @@ module SleepRecordUsecase
 
     private
 
-    attr_reader :include_followees
-
-    def user_ids
-      return [ user.id ] unless include_followees
-
-      followee_ids = follow_repository.list_followee_ids(user_id: user.id)
-      followee_ids << user.id
-      followee_ids
+    def followee_ids
+      follow_ids = follow_repository.list_followee_ids(user_id: user.id)
+      follow_ids << user.id
+      follow_ids
     end
   end
 end

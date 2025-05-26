@@ -33,32 +33,24 @@ RSpec.describe SleepRecordController, type: :request do
   end
 
   describe "GET /sleep_records" do
-    context "without followees" do
-      before do
-        allow_any_instance_of(SleepRecordUsecase::List).to receive(:call).and_return(
-          OpenStruct.new(success?: true, data: { data: ["record1", "record2"] })
-        )
-      end
-
-      it "returns records only for user" do
-        get "/sleep_records", headers: headers
-        expect(response).to have_http_status(:ok)
-        expect(response.parsed_body).to eq({ "data" => ["record1", "record2"] })
-      end
+    before do
+      allow_any_instance_of(SleepRecordUsecase::List).to receive(:call).and_return(
+        OpenStruct.new(success?: true, data: { data: ["record1", "record2", "record3"] })
+      )
     end
 
-    context "with include_followees param" do
-      before do
-        allow_any_instance_of(SleepRecordUsecase::List).to receive(:call).and_return(
-          OpenStruct.new(success?: true, data: { data: ["record1", "record2", "record3"] })
-        )
-      end
+    it "returns records with cursor and limit params" do
+      get "/sleep_records", params: { cursor: "100", limit: 2 }, headers: headers
 
-      it "returns records including followees" do
-        get "/sleep_records", params: { include_followees: "true" }, headers: headers
-        expect(response).to have_http_status(:ok)
-        expect(response.parsed_body).to eq({ "data" => ["record1", "record2", "record3"] })
-      end
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq({ "data" => ["record1", "record2", "record3"] })
+    end
+
+    it "returns records with default limit when limit param is missing" do
+      get "/sleep_records", params: { cursor: "200" }, headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq({ "data" => ["record1", "record2", "record3"] })
     end
   end
 end
