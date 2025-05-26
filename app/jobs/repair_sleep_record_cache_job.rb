@@ -7,14 +7,15 @@ class RepairSleepRecordCacheJob < ApplicationJob
     locked = $redis.set(lock_key, true, nx: true, ex: 60)
     return unless locked
 
-    repo = SleepRecordRepository.new
-    existing_ids = repo.list_fanout(user_id: user_id) # default fetch without cursor
+    sleep_record_repo = SleepRecordRepository.new
+    fanout_repo = FanoutRepository.new
+    existing_ids = fanout_repo.list_fanout(user_id: user_id) # default fetch without cursor
     correct_records = []
     cursor = nil
 
     while correct_records.size < SleepRecordRepository::FEED_LIST_LIMIT
       batch_limit = SleepRecordRepository::FEED_LIST_LIMIT - correct_records.size
-      records = repo.list_by_user_ids(user_ids: followee_ids, cursor: cursor, limit: batch_limit)
+      records = sleep_record_repo.list_by_user_ids(user_ids: followee_ids, cursor: cursor, limit: batch_limit)
       break if records.empty?
 
       correct_records.concat(records)

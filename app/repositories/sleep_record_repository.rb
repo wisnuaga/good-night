@@ -27,6 +27,10 @@ class SleepRecordRepository < Repository
                .first
   end
 
+  def find_by_id(id)
+    SleepRecord.find_by(id: id)
+  end
+
   # Create a new sleep record for a user
   def create(user_id:, clock_in:, clock_out: nil)
     sleep_record = SleepRecord.new(

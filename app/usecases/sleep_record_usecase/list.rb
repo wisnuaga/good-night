@@ -10,7 +10,7 @@ module SleepRecordUsecase
       decoded_cursor = Pagination::CursorHelper.decode_cursor(cursor)
       cursor_time = decoded_cursor&.to_i
 
-      record_ids = sleep_record_repository.list_fanout(user_id: user.id, cursor: cursor_time, limit: limit)
+      record_ids = fanout_repository.list_fanout(user_id: user.id, cursor: cursor_time, limit: limit)
       if record_ids.empty?
         # Cache miss: fallback to DB query
         records = sleep_record_repository.list_by_user_ids(user_ids: followee_ids, cursor: cursor_time, limit: limit)
