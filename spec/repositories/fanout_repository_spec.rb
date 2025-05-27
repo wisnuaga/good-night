@@ -1,105 +1,113 @@
 require 'rails_helper'
 
-RSpec.describe FanoutRepository do
-  let(:repo) { described_class.new }
-  let(:user) { User.create!(name: "Alice") }
-  let(:follower_ids) { [101, 102, 103] }
+RSpec.describe FollowRepository do
+  let(:repo) { FollowRepository.new }
+  let(:follower) { User.create!(name: "Follower") }
+  let(:followee) { User.create!(name: "Followee") }
 
-  before do
-    SleepRecord.delete_all
-    stub_const("Repository::FEED_LIST_LIMIT", 2)
-    stub_const("Repository::FEED_TTL_SECONDS", 3600)
-    follower_ids.each { |fid| $redis.del("feed:#{fid}") }
-  end
-
-  def create_sleep_record(offset_hours)
-    SleepRecord.create!(
-      user: user,
-      clock_in: offset_hours.hours.ago,
-      clock_out: (offset_hours - 1).hours.ago
-    )
-  end
-
-  describe "#write_fanout" do
-    let(:sleep_record) { create_sleep_record(2) }
-
-    it "adds the sleep record to each follower's feed with correct score" do
-      repo.write_fanout(sleep_record: sleep_record, follower_ids: follower_ids)
-
-      follower_ids.each do |fid|
-        feed_key = "feed:#{fid}"
-        members = $redis.zrange(feed_key, 0, -1, with_scores: true)
-
-        expect(members.length).to eq(1)
-        member, score = members.first
-        expect(member.to_i).to eq(sleep_record.id)
-        expect(score.to_i).to eq(sleep_record.sleep_time.to_i)
-        expect($redis.ttl(feed_key)).to be > 0
-      end
+  describe "#create" do
+    it "creates a valid follow" do
+      follow = repo.create(follower: follower, followee: followee)
+      expect(follow).to be_persisted
+      expect(follow.follower).to eq(follower)
+      expect(follow.followee).to eq(followee)
     end
 
-    it "trims the feed to FEED_LIST_LIMIT most recent items" do
-      records = [3, 2, 1].map { |h| create_sleep_record(h) }
-      records.each { |sr| repo.write_fanout(sleep_record: sr, follower_ids: follower_ids) }
-
-      follower_ids.each do |fid|
-        feed = $redis.zrevrange("feed:#{fid}", 0, -1).map(&:to_i)
-        expected = records.sort_by(&:clock_in).reverse.first(2).map(&:id)
-        expect(feed).to eq(expected)
-      end
+    it "returns invalid follow if duplicate exists" do
+      repo.create(follower: follower, followee: followee)
+      duplicate = repo.create(follower: follower, followee: followee)
+      expect(duplicate).not_to be_valid
+      expect(duplicate.errors[:followee_id]).to include("has already been taken")
     end
 
-    it "does not add duplicate sleep record to feed" do
-      repo.write_fanout(sleep_record: sleep_record, follower_ids: follower_ids)
-      repo.write_fanout(sleep_record: sleep_record, follower_ids: follower_ids)
-
-      follower_ids.each do |fid|
-        feed = $redis.zrange("feed:#{fid}", 0, -1)
-        expect(feed.count { |id| id.to_i == sleep_record.id }).to eq(1)
-      end
-    end
-
-    it "resets TTL on each addition" do
-      repo.write_fanout(sleep_record: sleep_record, follower_ids: [follower_ids[0]])
-      sleep(2)
-      ttl_1 = $redis.ttl("feed:#{follower_ids[0]}")
-
-      new_record = SleepRecord.create!(user: user, clock_in: 1.hour.ago, clock_out: Time.now)
-      repo.write_fanout(sleep_record: new_record, follower_ids: [follower_ids[1]])
-      ttl_2 = $redis.ttl("feed:#{follower_ids[1]}")
-
-      expect(ttl_2).to be > ttl_1
+    it "returns invalid follow if follower tries to follow self" do
+      follow = repo.create(follower: follower, followee: follower)
+      expect(follow).not_to be_valid
+      expect(follow.errors[:follower_id]).to include("can't follow yourself")
     end
   end
 
-  describe "#list_fanout" do
-    let(:user_id) { follower_ids.first }
-    let(:feed_key) { "feed:#{user_id}" }
-    let(:sleep_records) { [3, 2, 1].map { |h| create_sleep_record(h) } }
+  describe "#exists?" do
+    it "returns true if follow exists" do
+      repo.create(follower: follower, followee: followee)
+      expect(repo.exists?(follower: follower, followee: followee)).to be true
+    end
 
+    it "returns false if follow does not exist" do
+      expect(repo.exists?(follower: follower, followee: followee)).to be false
+    end
+  end
+
+  describe "#find_by_follower_and_followee" do
+    it "returns the follow if found" do
+      created = repo.create(follower: follower, followee: followee)
+      found = repo.find_by_follower_and_followee(follower: follower, followee: followee)
+      expect(found).to eq(created)
+    end
+
+    it "returns nil if follow not found" do
+      expect(repo.find_by_follower_and_followee(follower: follower, followee: followee)).to be_nil
+    end
+  end
+
+  describe "#list_followee_ids" do
+    it "returns list of followee ids for a follower" do
+      other_user = User.create!(name: "Other")
+      repo.create(follower: follower, followee: followee)
+      repo.create(follower: follower, followee: other_user)
+      expect(repo.list_followee_ids(user_id: follower.id)).to match_array([followee.id, other_user.id])
+    end
+
+    it "returns empty array if follower has no followees" do
+      expect(repo.list_followee_ids(user_id: follower.id)).to eq([])
+    end
+  end
+
+  describe "#list_follower_ids" do
+    let(:follower_2) { User.create!(name: "Follower 2") }
+
+    it "returns list of followee ids for a follower" do
+      other_user = User.create!(name: "Other 2")
+      repo.create(follower: follower, followee: other_user)
+      repo.create(follower: follower_2, followee: other_user)
+      expect(repo.list_follower_ids(user_id: other_user.id, limit: 100)).to match_array([follower.id, follower_2.id])
+    end
+
+    it "returns empty array if follower has no followees" do
+      unfollowed_other_user = User.create!(name: "Unfollowed Other 1")
+      expect(repo.list_follower_ids(user_id: unfollowed_other_user.id, limit: 100)).to eq([])
+    end
+  end
+
+  describe "#list_followee_ids_batch" do
     before do
-      $redis.del(feed_key)
-      sleep_records.each { |sr| $redis.zadd(feed_key, sr.clock_in.to_i, sr.id) }
+      @followees = 10.times.map { |i| User.create!(name: "Followee #{i}") }
+      @followees.each { |u| repo.create(follower: follower, followee: u) }
     end
 
-    it "returns sleep record ids in descending order by clock_in" do
-      ids = repo.list_fanout(user_id: user_id, limit: 2)
-      expected = sleep_records.sort_by(&:clock_in).reverse.first(2).map(&:id)
-      expect(ids).to eq(expected)
+    it "returns the first N followee IDs and next cursor" do
+      result, cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 3)
+
+      expect(result.size).to eq(3)
+      expect(cursor).to be_present
     end
 
-    it "returns items older than cursor when provided" do
-      sorted = sleep_records.sort_by(&:clock_in).reverse
-      cursor = sorted.first.clock_in.to_i
-      ids = repo.list_fanout(user_id: user_id, cursor: cursor, limit: 2)
-      expected = sorted.drop(1).first(2).map(&:id)
-      expect(ids).to eq(expected)
+    it "returns the next batch using cursor" do
+      first_batch, cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 2)
+      second_batch, next_cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor, limit: 2)
+
+      expect(first_batch & second_batch).to be_empty
+      expect(second_batch.size).to eq(2)
     end
 
-    it "returns an empty array when cache is empty" do
-      $redis.del(feed_key)
-      ids = repo.list_fanout(user_id: user_id, limit: 2)
-      expect(ids).to eq([])
+    it "returns empty array if cursor is beyond end" do
+      batch_1, cursor1 = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 5)
+      batch_2, cursor2 = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor1, limit: 5)
+      final_batch, _ = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor2, limit: 5)
+
+      expect(batch_1.size).to eq(5)
+      expect(batch_2.size).to eq(5)
+      expect(final_batch).to eq([])
     end
   end
 end
