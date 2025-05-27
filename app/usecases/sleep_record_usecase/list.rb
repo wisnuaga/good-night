@@ -8,7 +8,7 @@ module SleepRecordUsecase
       decoded_cursor = decode_cursor(cursor)
 
       record_ids = fanout_repository.list_fanout(user_id: user.id, cursor: decoded_cursor, limit: limit)
-      records = record_ids.any? ? fetch_ordered_records(record_ids, decoded_cursor) : fetch_fallback_records(decoded_cursor, limit)
+      records = record_ids.any? ? fetch_ordered_records(record_ids, decoded_cursor, limit) : fetch_fallback_records(decoded_cursor, limit)
 
       next_cursor = generate_next_cursor(records, limit)
 
@@ -21,16 +21,12 @@ module SleepRecordUsecase
 
     private
 
-    def decode_cursor(cursor)
-      Pagination::CursorHelper.decode_cursor(cursor)
-    end
-
-    def fetch_ordered_records(record_ids, decoded_cursor)
+    def fetch_ordered_records(record_ids, decoded_cursor, limit)
       unsorted = sleep_record_repository.list_by_ids(ids: record_ids)
       record_map = unsorted.index_by(&:id)
       ordered = record_ids.map { |id| record_map[id] }.compact
 
-      check_cache_staleness(record_ids, decoded_cursor)
+      check_cache_staleness(record_ids, decoded_cursor, limit)
 
       ordered
     end
@@ -47,8 +43,8 @@ module SleepRecordUsecase
       records
     end
 
-    def check_cache_staleness(record_ids, decoded_cursor)
-      total = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: decoded_cursor)
+    def check_cache_staleness(record_ids, decoded_cursor, limit)
+      total = sleep_record_repository.count_by_user_ids(user_ids: followee_ids, cursor: decoded_cursor, limit: limit)
       missing = total - record_ids.size
 
       return unless missing >= missing_threshold(total)
@@ -61,7 +57,7 @@ module SleepRecordUsecase
       last_time = records.last&.sleep_time
       return nil unless records.length == limit && last_time
 
-      Pagination::CursorHelper.encode_cursor(last_time.to_i)
+      encode_cursor(last_time.to_f)
     end
 
     def missing_threshold(total)

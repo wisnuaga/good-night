@@ -7,8 +7,9 @@ RSpec.describe SleepRecordUsecase::List do
   let(:fanout_repo) { instance_double(FanoutRepository) }
   let(:usecase) { described_class.new(user, sleep_record_repository: sleep_record_repo, follow_repository: follow_repo, fanout_repository: fanout_repo) }
 
-  let(:record1) { instance_double("SleepRecord", id: 101, clock_in: 1_686_470_000) }
-  let(:record2) { instance_double("SleepRecord", id: 102, clock_in: 1_686_470_100) }
+  let(:record1) { instance_double("SleepRecord", id: 101, clock_in: 28.hours.ago, clock_out: 20.hours.ago, sleep_time: (28.hours.ago - 20.hours.ago).to_f) }
+  let(:record2) { instance_double("SleepRecord", id: 102, clock_in: 14.hours.ago, clock_out: 10.hours.ago, sleep_time: (14.hours.ago - 10.hours.ago).to_f) }
+  let(:record3) { instance_double("SleepRecord", id: 103, clock_in: 4.hours.ago, clock_out: 1.hours.ago, sleep_time: (4.hours.ago - 1.hours.ago).to_f) }
 
   describe "#call" do
     context "when fanout is empty (fallback to DB)" do
@@ -37,11 +38,7 @@ RSpec.describe SleepRecordUsecase::List do
     context "when fanout returns results" do
       it "uses fanout and does not call list_by_user_ids" do
         fanout_ids = [101, 102, 103]
-        records = [
-          instance_double("SleepRecord", id: 101, clock_in: 1_686_470_200),
-          instance_double("SleepRecord", id: 102, clock_in: 1_686_470_300),
-          instance_double("SleepRecord", id: 103, clock_in: 1_686_470_400)
-        ]
+        records = [ record1, record2, record3 ]
 
         expect(fanout_repo).to receive(:list_fanout)
                                  .with(user_id: user.id, cursor: nil, limit: 10)
@@ -70,7 +67,9 @@ RSpec.describe SleepRecordUsecase::List do
       it "schedules RepairSleepRecordFanoutJob" do
         fanout_ids = [101, 102, 103]
         records = fanout_ids.map.with_index do |id, i|
-          instance_double("SleepRecord", id: id, clock_in: 1_686_470_200 + (i * 100))
+          clock_in =  1_686_470_200 + (i * 100)
+          clock_out = 1_686_470_200 + (i * 50)
+          instance_double("SleepRecord", id: id, clock_in: clock_in, clock_out: clock_out, sleep_time: (clock_in - clock_out).to_f)
         end
 
         expect(fanout_repo).to receive(:list_fanout)
@@ -102,9 +101,9 @@ RSpec.describe SleepRecordUsecase::List do
 
     context "when a cursor is provided" do
       it "decodes and passes cursor to repository method" do
-        cursor_time = 1_686_470_000
+        cursor_time = (10.hours.ago - 4.hours.ago).to_f
         limit = 5
-        cursor = Pagination::CursorHelper.encode_cursor(cursor_time)
+        cursor = Base64.urlsafe_encode64(cursor_time.to_s)
 
         expect(fanout_repo).to receive(:list_fanout)
                                  .with(user_id: user.id, cursor: cursor_time, limit: limit)
@@ -115,7 +114,7 @@ RSpec.describe SleepRecordUsecase::List do
                                  .and_return([2, 3])
 
         expect(sleep_record_repo).to receive(:list_by_user_ids)
-                                       .with(user_ids: [2, 3, 1], cursor: Time.at(cursor_time), limit: limit)
+                                       .with(user_ids: [2, 3, 1], cursor: cursor_time, limit: limit)
                                        .and_return([record1, record2])
 
         expect(RepairSleepRecordFanoutJob).to receive(:perform_later)
