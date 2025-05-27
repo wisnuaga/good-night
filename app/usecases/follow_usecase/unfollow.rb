@@ -7,6 +7,8 @@ module FollowUsecase
       return failure("Not following this user") unless follow
 
       if follow.destroy!
+        # Schedule fanout removal job after 1 hour
+        RemoveFanoutAfterUnfollowJob.set(wait: 1.hour).perform_later(user.id, followee.id)
         success({ message: "Unfollowed user successfully" })
       else
         failure("Failed to unfollow user")
