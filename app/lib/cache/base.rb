@@ -1,5 +1,5 @@
 module Cache
-  class BaseCache
+  class Base
     def initialize(prefix:, ttl:)
       @prefix = prefix
       @ttl = ttl
