@@ -16,14 +16,14 @@ RSpec.describe SleepRecordRepository do
       SleepRecord.delete_all
     end
 
-    it "returns sleep records for given user ids ordered by clock_in desc" do
+    it "returns sleep records for given user ids ordered by sleep_time desc" do
       now = Time.current
       record1 = SleepRecord.create!(user: user, clock_in: now - 2.hours, clock_out: now - 1.hour)
-      record2 = SleepRecord.create!(user: user, clock_in: now - 4.hours, clock_out: now - 3.hours)
+      record2 = SleepRecord.create!(user: user, clock_in: now - 5.hours, clock_out: now - 3.hours)
 
       records = repo.list_by_user_ids(user_ids: [user.id])
 
-      expect(records).to eq([record1, record2])
+      expect(records).to eq([record2, record1])
     end
 
     it "returns records for multiple user ids" do
@@ -37,16 +37,16 @@ RSpec.describe SleepRecordRepository do
       expect(records.map(&:user_id).uniq.sort).to eq([user.id, user2.id].sort)
     end
 
-    it "applies cursor to return records with clock_in < cursor" do
-      record1 = SleepRecord.create!(user: user, clock_in: now - 2.hours, clock_out: now - 3.hours)
-      record2 = SleepRecord.create!(user: user, clock_in: now - 4.hours, clock_out: now - 1.hour)
+    it "applies cursor to return records with sleep_time < cursor" do
+      record1 = SleepRecord.create!(user: user, clock_in: now - 2.hours, clock_out: now - 1.hours)
+      record2 = SleepRecord.create!(user: user, clock_in: now - 8.hours, clock_out: now - 3.hour)
 
-      cursor = now - 3.hours
+      cursor = (now - 3.hours).to_f
 
       records = repo.list_by_user_ids(user_ids: [user.id], cursor: cursor)
 
       # Expect the first returned record to be record2 (clock_in < cursor)
-      expect(records.first.clock_in).to be_within(1.second).of(record2.clock_in)
+      expect(records.first).to eq(record2)
     end
 
     it "limits the number of records returned" do
@@ -65,11 +65,12 @@ RSpec.describe SleepRecordRepository do
   describe "#list_by_ids" do
     let(:user) { create(:user) }
 
-    it "returns records by given ids ordered by clock_in desc" do
+    it "returns records by given ids limited" do
       r1 = SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hours.ago)
       r2 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
-      result = repo.list_by_ids(ids: [r1.id, r2.id])
-      expect(result).to eq([r2, r1])
+      r3 = SleepRecord.create!(user: user, clock_in: 2.hours.ago, clock_out: 1.hours.ago)
+      result = repo.list_by_ids(ids: [r1.id, r2.id, r3.id], limit: 2)
+      expect(result.size).to eq(2)
     end
   end
 

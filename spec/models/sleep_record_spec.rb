@@ -41,4 +41,23 @@ RSpec.describe SleepRecord, type: :model do
       expect(new_sleep).to be_valid
     end
   end
+
+  describe "before_save :calculate_sleep_time" do
+    it "calculates sleep_time as difference between clock_out and clock_in if valid" do
+      sleep_record = SleepRecord.new(user: user, clock_in: 3.hours.ago, clock_out: 1.hour.ago)
+      sleep_record.save!
+      expect(sleep_record.sleep_time).to be_within(1.second).of(2.hours)
+    end
+
+    it "sets sleep_time to nil if clock_out is nil" do
+      sleep_record = SleepRecord.create!(user: user, clock_in: Time.current, clock_out: nil)
+      expect(sleep_record.sleep_time).to be_nil
+    end
+
+    it "sets sleep_time to nil if clock_out is before clock_in" do
+      sleep_record = SleepRecord.new(user: user, clock_in: Time.current, clock_out: 1.hour.ago)
+      sleep_record.save
+      expect(sleep_record.sleep_time).to be_nil
+    end
+  end
 end
