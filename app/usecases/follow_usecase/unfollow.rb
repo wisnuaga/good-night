@@ -16,5 +16,11 @@ module FollowUsecase
     rescue => e
       failure("Unexpected error: #{e.message}")
     end
+
+    private
+
+    def remove_feeds
+      feeds_id
+    end
   end
 end
