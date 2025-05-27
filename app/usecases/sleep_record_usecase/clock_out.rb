@@ -15,7 +15,7 @@ module SleepRecordUsecase
         if follower_ids.count <= Repository::FANOUT_LIMIT
           SleepRecordFanoutJob.perform_later(session.id, follower_ids)
         else
-          Rails.logger.info("[SleepRecordUsecase::ClockIn] Skipping fanout for user #{user.id} due to follower count (#{follower_ids.count}) exceeding limit #{Repository::FANOUT_LIMIT}. Will fanout on read.")
+          Rails.logger.info("[SleepRecordUsecase::ClockOut] Skipping fanout for user #{user.id} due to follower count (#{follower_ids.count}) exceeding limit #{Repository::FANOUT_LIMIT}. Will fanout on read.")
         end
 
         success(session)
