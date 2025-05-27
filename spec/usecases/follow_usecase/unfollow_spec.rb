@@ -17,11 +17,15 @@ RSpec.describe FollowUsecase::Unfollow do
 
   describe "#call" do
     context "when following and both users exist" do
-      it "returns success" do
+      it "returns success and schedules RemoveFanoutAfterUnfollowJob" do
         follow = double(:follow)
         allow(user_repository).to receive(:find_by_id).with(followee.id).and_return(followee)
         allow(follow_repository).to receive(:find_by_follower_and_followee).with(follower: follower, followee: followee).and_return(follow)
         allow(follow).to receive(:destroy!).and_return(true)
+
+        job_double = double("ActiveJob::ConfiguredJob")
+        expect(RemoveFanoutAfterUnfollowJob).to receive(:set).with(wait: 1.hour).and_return(job_double)
+        expect(job_double).to receive(:perform_later).with(follower.id, followee.id)
 
         result = subject.call
         expect(result.success?).to be true
