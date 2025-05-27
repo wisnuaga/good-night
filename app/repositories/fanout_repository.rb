@@ -21,6 +21,16 @@ class FanoutRepository < Repository
     end
   end
 
+  # Remove specific sleep record IDs from a user's feed
+  def remove_from_feed(user_id:, sleep_record_ids:)
+    key = feed_key(user_id)
+    # Ensure all values are strings (Redis stores as strings)
+
+    sleep_record_ids.each do |id|
+      $redis.zrem(key, id)
+    end
+  end
+
   def add_to_feed(user_id:, sleep_record:)
     key = feed_key(user_id)
 

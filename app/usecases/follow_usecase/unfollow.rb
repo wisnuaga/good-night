@@ -7,14 +7,22 @@ module FollowUsecase
       return failure("Not following this user") unless follow
 
       if follow.destroy!
+        # schedule fanout removal job after 1 hour
+        RemoveFanoutAfterUnfollowJob.set(wait: 1.hour).perform_later(user.id, followee.id)
         success({ message: "Unfollowed user successfully" })
       else
-        failure("Failed to unfollow user")
+        failure("failed to unfollow user")
       end
     rescue UsecaseError::UserNotFoundError => e
       failure(e.message)
     rescue => e
       failure("Unexpected error: #{e.message}")
+    end
+
+    private
+
+    def remove_feeds
+      feeds_id
     end
   end
 end
