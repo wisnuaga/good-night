@@ -5,7 +5,7 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
     user = UserRepository.new.find_by_id(user_id)
     followee = UserRepository.new.find_by_id(unfollowed_user_id)
 
-    return unless followee or user
+    return unless followee && user
 
     # Confirm the user is *still* not following the target
     return if FollowRepository.new.exists?(follower: user, followee: followee)
