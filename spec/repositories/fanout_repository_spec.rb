@@ -1,113 +1,81 @@
 require 'rails_helper'
 
-RSpec.describe FollowRepository do
-  let(:repo) { FollowRepository.new }
-  let(:follower) { User.create!(name: "Follower") }
-  let(:followee) { User.create!(name: "Followee") }
+RSpec.describe FanoutRepository do
+  let(:redis) { instance_double('Redis') }
+  let(:repo) { described_class.new }
+  let(:user_id) { 123 }
+  let(:follower_ids) { [1, 2, 3] }
+  let(:sleep_record) { double('SleepRecord', id: 99, sleep_time: 3600.5) }
+  let(:feed_key) { "feed:#{user_id}" }
 
-  describe "#create" do
-    it "creates a valid follow" do
-      follow = repo.create(follower: follower, followee: followee)
-      expect(follow).to be_persisted
-      expect(follow.follower).to eq(follower)
-      expect(follow.followee).to eq(followee)
-    end
+  before do
+    $redis = redis
+    stub_const('Repository::FEED_LIST_LIMIT', 5)
+    stub_const('Repository::FEED_TTL_SECONDS', 86_400)
+  end
 
-    it "returns invalid follow if duplicate exists" do
-      repo.create(follower: follower, followee: followee)
-      duplicate = repo.create(follower: follower, followee: followee)
-      expect(duplicate).not_to be_valid
-      expect(duplicate.errors[:followee_id]).to include("has already been taken")
-    end
+  describe '#write_fanout' do
+    it 'adds the sleep record to each follower feed' do
+      follower_ids.each do |fid|
+        expect(repo).to receive(:add_to_feed).with(user_id: fid, sleep_record: sleep_record)
+      end
 
-    it "returns invalid follow if follower tries to follow self" do
-      follow = repo.create(follower: follower, followee: follower)
-      expect(follow).not_to be_valid
-      expect(follow.errors[:follower_id]).to include("can't follow yourself")
+      repo.write_fanout(sleep_record: sleep_record, follower_ids: follower_ids)
     end
   end
 
-  describe "#exists?" do
-    it "returns true if follow exists" do
-      repo.create(follower: follower, followee: followee)
-      expect(repo.exists?(follower: follower, followee: followee)).to be true
+  describe '#list_fanout' do
+    context 'when cursor is provided' do
+      it 'calls zrevrangebyscore with float cursor and maps to integers' do
+        float_cursor = 3600.4
+        redis_result = ['88', '77']
+
+        expect(redis).to receive(:zrevrangebyscore)
+                           .with(feed_key, "(#{float_cursor}", "-inf", limit: [0, Repository::FEED_LIST_LIMIT])
+                           .and_return(redis_result)
+
+        result = repo.list_fanout(user_id: user_id, cursor: float_cursor, limit: Repository::FEED_LIST_LIMIT)
+        expect(result).to eq([88, 77])
+      end
     end
 
-    it "returns false if follow does not exist" do
-      expect(repo.exists?(follower: follower, followee: followee)).to be false
-    end
-  end
+    context 'when cursor is nil' do
+      it 'calls zrevrange and maps to integers' do
+        redis_result = ['55', '44']
+        expect(redis).to receive(:zrevrange).with(feed_key, 0, Repository::FEED_LIST_LIMIT - 1).and_return(redis_result)
 
-  describe "#find_by_follower_and_followee" do
-    it "returns the follow if found" do
-      created = repo.create(follower: follower, followee: followee)
-      found = repo.find_by_follower_and_followee(follower: follower, followee: followee)
-      expect(found).to eq(created)
-    end
-
-    it "returns nil if follow not found" do
-      expect(repo.find_by_follower_and_followee(follower: follower, followee: followee)).to be_nil
-    end
-  end
-
-  describe "#list_followee_ids" do
-    it "returns list of followee ids for a follower" do
-      other_user = User.create!(name: "Other")
-      repo.create(follower: follower, followee: followee)
-      repo.create(follower: follower, followee: other_user)
-      expect(repo.list_followee_ids(user_id: follower.id)).to match_array([followee.id, other_user.id])
-    end
-
-    it "returns empty array if follower has no followees" do
-      expect(repo.list_followee_ids(user_id: follower.id)).to eq([])
+        result = repo.list_fanout(user_id: user_id, cursor: nil, limit: Repository::FEED_LIST_LIMIT)
+        expect(result).to eq([55, 44])
+      end
     end
   end
 
-  describe "#list_follower_ids" do
-    let(:follower_2) { User.create!(name: "Follower 2") }
+  describe '#remove_from_feed' do
+    it 'removes given sleep record ids from Redis' do
+      ids = [11, 22]
+      ids.each do |id|
+        expect(redis).to receive(:zrem).with(feed_key, id)
+      end
 
-    it "returns list of followee ids for a follower" do
-      other_user = User.create!(name: "Other 2")
-      repo.create(follower: follower, followee: other_user)
-      repo.create(follower: follower_2, followee: other_user)
-      expect(repo.list_follower_ids(user_id: other_user.id, limit: 100)).to match_array([follower.id, follower_2.id])
-    end
-
-    it "returns empty array if follower has no followees" do
-      unfollowed_other_user = User.create!(name: "Unfollowed Other 1")
-      expect(repo.list_follower_ids(user_id: unfollowed_other_user.id, limit: 100)).to eq([])
+      repo.remove_from_feed(user_id: user_id, sleep_record_ids: ids)
     end
   end
 
-  describe "#list_followee_ids_batch" do
-    before do
-      @followees = 10.times.map { |i| User.create!(name: "Followee #{i}") }
-      @followees.each { |u| repo.create(follower: follower, followee: u) }
+  describe '#add_to_feed' do
+    it 'adds sleep_record to the Redis sorted set with correct score and trims the feed' do
+      expect(redis).to receive(:zadd).with(feed_key, [sleep_record.sleep_time, sleep_record.id], nx: true)
+      expect(repo).to receive(:trim_feed).with(user_id)
+
+      repo.add_to_feed(user_id: user_id, sleep_record: sleep_record)
     end
+  end
 
-    it "returns the first N followee IDs and next cursor" do
-      result, cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 3)
+  describe '#trim_feed' do
+    it 'trims the sorted set and sets an expiry' do
+      expect(redis).to receive(:zremrangebyrank).with(feed_key, 0, -(Repository::FEED_LIST_LIMIT + 1))
+      expect(redis).to receive(:expire).with(feed_key, Repository::FEED_TTL_SECONDS)
 
-      expect(result.size).to eq(3)
-      expect(cursor).to be_present
-    end
-
-    it "returns the next batch using cursor" do
-      first_batch, cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 2)
-      second_batch, next_cursor = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor, limit: 2)
-
-      expect(first_batch & second_batch).to be_empty
-      expect(second_batch.size).to eq(2)
-    end
-
-    it "returns empty array if cursor is beyond end" do
-      batch_1, cursor1 = repo.list_followee_ids_batch(user_id: follower.id, cursor: nil, limit: 5)
-      batch_2, cursor2 = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor1, limit: 5)
-      final_batch, _ = repo.list_followee_ids_batch(user_id: follower.id, cursor: cursor2, limit: 5)
-
-      expect(batch_1.size).to eq(5)
-      expect(batch_2.size).to eq(5)
-      expect(final_batch).to eq([])
+      repo.trim_feed(user_id)
     end
   end
 end
