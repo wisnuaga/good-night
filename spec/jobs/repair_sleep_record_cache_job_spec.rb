@@ -15,8 +15,8 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
 
   let(:records_batch_1) do
     [
-      OpenStruct.new(id: 12, clock_in: Time.parse("2025-05-26 10:00:00")),
-      OpenStruct.new(id: 13, clock_in: Time.parse("2025-05-26 09:00:00"))
+      OpenStruct.new(id: 12, clock_in: Time.parse("2025-05-25 10:00:00"), clock_out: Time.parse("2025-05-25 07:00:00"), sleep_time: (Time.parse("2025-05-25 10:00:00") - Time.parse("2025-05-25 07:00:00").to_f)),
+      OpenStruct.new(id: 13, clock_in: Time.parse("2025-05-26 09:00:00"), clock_out: Time.parse("2025-05-26 04:00:00"), sleep_time: (Time.parse("2025-05-26 09:00:00") - Time.parse("2025-05-26 04:00:00").to_f))
     ]
   end
 
@@ -61,12 +61,12 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
 
         # Second batch of sleep records
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_1.last.clock_in, limit: 1)
+                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_1.last.sleep_time, limit: 1)
                                       .and_return(records_batch_2)
 
         # Third call should return empty to break the loop
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_2.last.clock_in, limit: 0)
+                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_2.last.sleep_time, limit: 0)
                                       .and_return([])
       end
 
