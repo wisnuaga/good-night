@@ -1,24 +1,57 @@
-# README
+# Good Night
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+## Description
+Good Night is the API service for manage user sleep records and support follow/unfollow feature for any user that's want to see their followee's sleep records.
 
-Things you may want to cover:
+## Onboarding and Development Guide
 
-* Ruby version
+### Prerequisite
 
-* System dependencies
+- [Install git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+- [Install docker](https://docs.docker.com/desktop/)
+- [Install docker-compose](https://docs.docker.com/compose/install/)
+- [Install RVM](https://rvm.io/rvm/install)
 
-* Configuration
+### Setup
 
-* Database creation
+- Clone this repo
+  ```sh
+  git@github.com:wisnuaga/good-night.git
+  ```
 
-* Database initialization
+- Install Ruby 3.2.2
+  ```sh
+  rvm install ruby-3.1.4
+  ```
 
-* How to run the test suite
+- Create poodle gemset
+  ```sh
+  rvm 3.1.4@good-night --create
+  ```
 
-* Services (job queues, cache servers, search engines, etc.)
+- Setup Bundler
+  ```sh
+  gem install bundler
+  bundle install
+  ```
 
-* Deployment instructions
+- Setup environment variables
+  ```sh
+  cp env.sample .env
+  ```
 
-* ...
+### Setup Database
+
+- Run `rake db:create`
+- Run `rake db:migrate`
+- Run `rake db:seed`
+
+Notes: Due to unsupported user registration yet, you can add more user on [seeds.rb](db/seeds.rb)
+
+## Request Flows, Endpoints, and Dependencies
+#### Endpoints
+- TBA
+
+#### Stateful Dependencies
+- PostgreSQL
+- Redis
