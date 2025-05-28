@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe Cache::Base do
+RSpec.describe Caches::Base do
   let(:redis) { instance_double('Redis') }
   let(:prefix) { 'cache:test' }
   let(:ttl) { 3600 }

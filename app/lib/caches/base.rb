@@ -1,4 +1,4 @@
-module Cache
+module Caches
   class Base
     def initialize(prefix:, ttl:)
       @prefix = prefix

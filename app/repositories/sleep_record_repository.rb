@@ -2,7 +2,7 @@ class SleepRecordRepository < Repository
 
 
   def initialize
-    @cache = Cache::SleepRecordCache.new
+    @cache = Caches::SleepRecordCache.new
   end
 
   def list_by_user_ids(user_ids:, cursor: nil, limit: FEED_LIST_LIMIT)

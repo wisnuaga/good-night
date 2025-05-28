@@ -1,4 +1,4 @@
-module Cache
+module Caches
   class SleepRecordCache < Base
     def initialize
       @ttl = ENV.fetch('SLEEP_RECORD_CACHE_TTL', 6.hours.to_i).to_i
