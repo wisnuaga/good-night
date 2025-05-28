@@ -1,7 +1,9 @@
 module Cache
   class SleepRecordCache < Base
     def initialize
-      super(prefix: 'cache:sleep_record', ttl: 6.hours)
+      @ttl = ENV.fetch('SLEEP_RECORD_CACHE_TTL', 6.hours.to_i).to_i
+      puts "TTL: #{@ttl}"
+      super(prefix: 'cache:sleep_record', ttl: @ttl)
     end
 
     private
@@ -14,5 +16,4 @@ module Cache
       nil
     end
   end
-
 end
