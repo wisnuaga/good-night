@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe SleepRecordRepository do
   let(:repo) { described_class.new }
-  let(:user) { User.create!(name: "Alice") }
+  let(:user) { create(:user) }
 
   before do
     SleepRecord.delete_all
@@ -39,7 +39,7 @@ RSpec.describe SleepRecordRepository do
 
     it "applies cursor to return records with sleep_time < cursor" do
       record1 = SleepRecord.create!(user: user, clock_in: now - 2.hours, clock_out: now - 1.hours)
-      record2 = SleepRecord.create!(user: user, clock_in: now - 8.hours, clock_out: now - 3.hour)
+      record2 = SleepRecord.create!(user: user, clock_in: now - 8.hours, clock_out: now - 3.hours)
 
       cursor = (now - 3.hours).to_f
 
@@ -63,20 +63,47 @@ RSpec.describe SleepRecordRepository do
   end
 
   describe "#list_by_ids" do
-    let(:user) { create(:user) }
+    let(:cache) { instance_double(Caches::SleepRecordCache) }
 
-    it "returns records by given ids limited" do
+    before do
+      allow(Caches::SleepRecordCache).to receive(:new).and_return(cache)
+    end
+
+    it "returns records by given ids limited, partially from cache" do
       r1 = SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hours.ago)
       r2 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
       r3 = SleepRecord.create!(user: user, clock_in: 2.hours.ago, clock_out: 1.hours.ago)
-      result = repo.list_by_ids(ids: [r1.id, r2.id, r3.id], limit: 2)
-      expect(result.size).to eq(2)
+
+      # Cache returns r1 and r3 cached; r2 is missing
+      allow(cache).to receive(:get_many)
+                        .with([r1.id, r2.id, r3.id])
+                        .and_return([[r1, r3], [r2.id]])
+
+      expect(cache).to receive(:set_many).with([an_instance_of(SleepRecord)])
+
+      result = repo.list_by_ids(ids: [r1.id, r2.id, r3.id], limit: 3)
+
+      ordered = result.sort_by(&:clock_in).reverse
+      expect(ordered.first.clock_in).to be > ordered.last.clock_in
+    end
+
+    it "returns all records from cache if no misses" do
+      r1 = SleepRecord.create!(user: user, clock_in: 5.hours.ago, clock_out: 4.hours.ago)
+      r2 = SleepRecord.create!(user: user, clock_in: 3.hours.ago, clock_out: 2.hours.ago)
+
+      allow(cache).to receive(:get_many)
+                        .with([r1.id, r2.id])
+                        .and_return([[r1, r2], []])
+
+      expect(cache).not_to receive(:set_many)
+
+      result = repo.list_by_ids(ids: [r1.id, r2.id], limit: 2)
+
+      expect(result).to match_array([r1, r2])
     end
   end
 
   describe "#count_by_user_ids" do
-    let(:user) { create(:user) }
-
     before do
       stub_const("Repository::FEED_TTL_SECONDS", 86400)
       stub_const("Repository::FEED_LIST_LIMIT", 2)
