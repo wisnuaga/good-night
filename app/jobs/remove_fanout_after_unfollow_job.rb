@@ -2,33 +2,44 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
   queue_as :default
 
   def perform(user_id, unfollowed_user_id)
-    user = UserRepository.new.find_by_id(user_id)
-    followee = UserRepository.new.find_by_id(unfollowed_user_id)
+    lock_key = "remove_lock:#{user_id}"
+    locked = $redis.set(lock_key, true, nx: true, ex: 60)
+    return unless locked
 
-    return unless followee && user
+    begin
+      user = UserRepository.new.find_by_id(user_id)
+      followee = UserRepository.new.find_by_id(unfollowed_user_id)
 
-    # Confirm the user is *still* not following the target
-    return if FollowRepository.new.exists?(follower: user, followee: followee)
+      return unless followee && user
 
-    sleep_record_repo = SleepRecordRepository.new
-    fanout_repo = FanoutRepository.new
+      # Confirm the user is *still* not following the target
+      return if FollowRepository.new.exists?(follower: user, followee: followee)
 
-    cursor_time = nil
+      sleep_record_repo = SleepRecordRepository.new
+      fanout_repo = FanoutRepository.new
 
-    loop do
-      records = sleep_record_repo.list_by_user_ids(
-        user_ids: [unfollowed_user_id],
-        cursor: cursor_time,
-        limit: SleepRecordRepository::FEED_LIST_LIMIT
-      )
+      cursor_time = nil
 
-      break if records.empty?
+      loop do
+        records = sleep_record_repo.list_by_user_ids(
+          user_ids: [unfollowed_user_id],
+          cursor: cursor_time,
+          limit: SleepRecordRepository::FEED_LIST_LIMIT
+        )
 
-      record_ids = records.map(&:id)
-      fanout_repo.remove_from_feed(user_id: user_id, sleep_record_ids: record_ids)
+        break if records.empty?
 
-      # Move cursor to last record's sleep_time for next batch
-      cursor_time = records.last.sleep_time
+        record_ids = records.map(&:id)
+        fanout_repo.remove_from_feed(user_id: user_id, sleep_record_ids: record_ids)
+
+        # Move cursor to last record's sleep_time for next batch
+        cursor_time = records.last.sleep_time
+      end
+    rescue => e
+      Rails.logger.error("[RemoveFanoutAfterUnfollowJob] Failed for user #{user_id} unfollowed #{unfollowed_user_id}: #{e.message}")
+      # Don't delete lock here; let ensure block handle it
+    ensure
+      $redis.del(lock_key)
     end
   end
 end

@@ -1,4 +1,10 @@
 class SleepRecordRepository < Repository
+
+
+  def initialize
+    @cache = Caches::SleepRecordCache.new
+  end
+
   def list_by_user_ids(user_ids:, cursor: nil, limit: FEED_LIST_LIMIT)
     query = SleepRecord.where(user_id: user_ids)
                        .where('clock_in >= ?', feed_since_limit)
@@ -17,8 +23,19 @@ class SleepRecordRepository < Repository
     [ total, limit ].min
   end
 
+  # Cache-aware list_by_ids
   def list_by_ids(ids:, limit: FEED_LIST_LIMIT)
-    SleepRecord.where(id: ids).limit(limit)
+    cached, missed_ids = @cache.get_many(ids)
+
+    if missed_ids.any?
+      from_db = SleepRecord.where(id: missed_ids)
+      @cache.set_many(from_db)
+      cached.concat(from_db)
+    end
+
+    # Ensure order by given ID list and limit
+    sorted = ids.map { |id| cached.find { |rec| rec.id == id } }.compact
+    sorted.take(limit)
   end
 
   def find_active_by_user(user_id)

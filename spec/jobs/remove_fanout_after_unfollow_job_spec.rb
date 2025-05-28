@@ -9,6 +9,7 @@ RSpec.describe RemoveFanoutAfterUnfollowJob, type: :job do
   let(:follow_repo) { instance_double(FollowRepository) }
   let(:sleep_record_repo) { instance_double(SleepRecordRepository) }
   let(:fanout_repo) { instance_double(FanoutRepository) }
+  let(:lock_key) { "remove_lock:#{user_id}" }
 
   before do
     stub_const("UserRepository", Class.new)
@@ -22,61 +23,97 @@ RSpec.describe RemoveFanoutAfterUnfollowJob, type: :job do
     allow(FanoutRepository).to receive(:new).and_return(fanout_repo)
 
     stub_const("SleepRecordRepository::FEED_LIST_LIMIT", 10)
+
+    # Default Redis behavior: lock acquired
+    allow($redis).to receive(:set).with(lock_key, true, nx: true, ex: 60).and_return(true)
+    allow($redis).to receive(:del)
   end
 
-  context "when user or followee is not found" do
-    it "does nothing if user is nil" do
-      allow(user_repo).to receive(:find_by_id).with(user_id).and_return(nil)
-      allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
+  context "when Redis lock is NOT acquired" do
+    it "returns immediately and does not run the job" do
+      allow($redis).to receive(:set).with(lock_key, true, nx: true, ex: 60).and_return(false)
 
+      expect(user_repo).not_to receive(:find_by_id)
       expect(follow_repo).not_to receive(:exists?)
       expect(fanout_repo).not_to receive(:remove_from_feed)
-
-      described_class.perform_now(user_id, unfollowed_user_id)
-    end
-
-    it "does nothing if followee is nil" do
-      allow(user_repo).to receive(:find_by_id).with(user_id).and_return(user)
-      allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(nil)
-
-      expect(follow_repo).not_to receive(:exists?)
-      expect(fanout_repo).not_to receive(:remove_from_feed)
+      expect($redis).not_to receive(:del)
 
       described_class.perform_now(user_id, unfollowed_user_id)
     end
   end
 
-  context "when user is still following followee" do
-    it "does nothing" do
-      allow(user_repo).to receive(:find_by_id).with(user_id).and_return(user)
-      allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
-      allow(follow_repo).to receive(:exists?).with(follower: user, followee: followee).and_return(true)
+  context "when Redis lock is acquired" do
+    context "when user or followee is not found" do
+      it "does nothing if user is nil" do
+        allow(user_repo).to receive(:find_by_id).with(user_id).and_return(nil)
+        allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
 
-      expect(fanout_repo).not_to receive(:remove_from_feed)
+        expect(follow_repo).not_to receive(:exists?)
+        expect(fanout_repo).not_to receive(:remove_from_feed)
+        expect($redis).to receive(:del).with(lock_key)
 
-      described_class.perform_now(user_id, unfollowed_user_id)
+        described_class.perform_now(user_id, unfollowed_user_id)
+      end
+
+      it "does nothing if followee is nil" do
+        allow(user_repo).to receive(:find_by_id).with(user_id).and_return(user)
+        allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(nil)
+
+        expect(follow_repo).not_to receive(:exists?)
+        expect(fanout_repo).not_to receive(:remove_from_feed)
+        expect($redis).to receive(:del).with(lock_key)
+
+        described_class.perform_now(user_id, unfollowed_user_id)
+      end
     end
-  end
 
-  context "when unfollowed and records exist" do
-    it "removes records in batches from feed" do
-      allow(user_repo).to receive(:find_by_id).with(user_id).and_return(user)
-      allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
-      allow(follow_repo).to receive(:exists?).with(follower: user, followee: followee).and_return(false)
+    context "when user is still following followee" do
+      it "does nothing" do
+        allow(user_repo).to receive(:find_by_id).with(user_id).and_return(user)
+        allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
+        allow(follow_repo).to receive(:exists?).with(follower: user, followee: followee).and_return(true)
 
-      record1 = double(:record, id: 1, sleep_time: Time.current)
-      record2 = double(:record, id: 2, sleep_time: Time.current + 1.minute)
+        expect(fanout_repo).not_to receive(:remove_from_feed)
+        expect($redis).to receive(:del).with(lock_key)
 
-      allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                    .with(user_ids: [unfollowed_user_id], cursor: nil, limit: SleepRecordRepository::FEED_LIST_LIMIT)
-                                    .and_return([record1, record2])
-      allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                    .with(user_ids: [unfollowed_user_id], cursor: record2.sleep_time, limit: SleepRecordRepository::FEED_LIST_LIMIT)
-                                    .and_return([])
-
-      expect(fanout_repo).to receive(:remove_from_feed).with(user_id: user_id, sleep_record_ids: [1, 2])
-
-      described_class.perform_now(user_id, unfollowed_user_id)
+        described_class.perform_now(user_id, unfollowed_user_id)
+      end
     end
+
+    context "when unfollowed and records exist" do
+      it "removes records in batches from feed and releases lock" do
+        allow(user_repo).to receive(:find_by_id).with(user_id).and_return(user)
+        allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
+        allow(follow_repo).to receive(:exists?).with(follower: user, followee: followee).and_return(false)
+
+        record1 = double(:record, id: 1, sleep_time: Time.current)
+        record2 = double(:record, id: 2, sleep_time: Time.current + 1.minute)
+
+        allow(sleep_record_repo).to receive(:list_by_user_ids)
+                                      .with(user_ids: [unfollowed_user_id], cursor: nil, limit: SleepRecordRepository::FEED_LIST_LIMIT)
+                                      .and_return([record1, record2])
+        allow(sleep_record_repo).to receive(:list_by_user_ids)
+                                      .with(user_ids: [unfollowed_user_id], cursor: record2.sleep_time, limit: SleepRecordRepository::FEED_LIST_LIMIT)
+                                      .and_return([])
+
+        expect(fanout_repo).to receive(:remove_from_feed).with(user_id: user_id, sleep_record_ids: [1, 2])
+        expect($redis).to receive(:del).with(lock_key)
+
+        described_class.perform_now(user_id, unfollowed_user_id)
+      end
+    end
+
+    context "when an error occurs" do
+      it "logs the error and does NOT release the lock" do
+        allow(user_repo).to receive(:find_by_id).with(user_id).and_raise(StandardError.new("Something went wrong"))
+        allow(user_repo).to receive(:find_by_id).with(unfollowed_user_id).and_return(followee)
+
+        expect(Rails.logger).to receive(:error).with(/\[RemoveFanoutAfterUnfollowJob\] Failed for user #{user_id} unfollowed #{unfollowed_user_id}: Something went wrong/)
+        expect($redis).to receive(:del)
+
+        described_class.perform_now(user_id, unfollowed_user_id)
+      end
+    end
+
   end
 end
