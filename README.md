@@ -40,6 +40,9 @@ Good Night is the API service for manage user sleep records and support follow/u
   cp env.sample .env
   ```
 
+## Database Schema
+![Screenshot 2025-05-28 at 09.22.03.png](.assets/Screenshot%202025-05-28%20at%2009.22.03.png)
+
 ### Setup Database
 
 - Run `rake db:create`
