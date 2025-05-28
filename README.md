@@ -41,7 +41,7 @@ Good Night is the API service for manage user sleep records and support follow/u
   ```
 
 ## Database Schema
-![Screenshot 2025-05-28 at 09.22.03.png](.assets/Screenshot%202025-05-28%20at%2009.22.03.png)
+![schema.png](docs/database/schema.png)
 
 ### Setup Database
 
