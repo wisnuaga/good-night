@@ -54,6 +54,9 @@ class RepairSleepRecordFanoutJob < ApplicationJob
     missing_records.each do |record|
       fanout_repo.add_to_feed(user_id: user_id, sleep_record: record)
     end
+
+    # Success: release lock
+    $redis.del(lock_key)
   rescue => e
     Rails.logger.error("[RepairSleepRecordFanoutJob] Failed for user #{user_id}: #{e.message}")
   end

@@ -34,5 +34,10 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
       # Move cursor to last record's sleep_time for next batch
       cursor_time = records.last.sleep_time
     end
+
+    # Success: release lock
+    $redis.del(lock_key)
+  rescue => e
+    Rails.logger.error("[RemoveFanoutAfterUnfollowJob] Failed for user #{user_id} unfollowed #{unfollowed_user_id}: #{e.message}")
   end
 end
