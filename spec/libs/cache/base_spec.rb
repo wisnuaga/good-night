@@ -10,7 +10,6 @@ RSpec.describe Caches::Base do
   let(:record2) { double('Record', id: 2, to_json: '{"id":2,"name":"bar"}') }
 
   before do
-    # Mock global $redis
     $redis = redis
   end
 
