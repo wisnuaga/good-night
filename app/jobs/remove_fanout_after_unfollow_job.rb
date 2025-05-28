@@ -2,6 +2,10 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
   queue_as :default
 
   def perform(user_id, unfollowed_user_id)
+    lock_key = "remove_lock:#{user_id}"
+    locked = $redis.set(lock_key, true, nx: true, ex: 60)
+    return unless locked
+
     user = UserRepository.new.find_by_id(user_id)
     followee = UserRepository.new.find_by_id(unfollowed_user_id)
 
