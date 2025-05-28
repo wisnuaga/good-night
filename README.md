@@ -1,7 +1,7 @@
 # Good Night
 
 ## Description
-Good Night is the API service for manage user sleep records and support follow/unfollow feature for any user that's want to see their followee's sleep records.
+Good Night is the API service for managing user sleep records and supports follow/unfollow features for any user who wants to see their followee's sleep records.
 
 ## Onboarding and Development Guide
 
@@ -24,7 +24,7 @@ Good Night is the API service for manage user sleep records and support follow/u
   rvm install ruby-3.1.4
   ```
 
-- Create poodle gemset
+- Create good-night gemset
   ```sh
   rvm 3.1.4@good-night --create
   ```
@@ -41,7 +41,13 @@ Good Night is the API service for manage user sleep records and support follow/u
   ```
 
 ## Database Schema
+
+<details>
+  <summary>Database Schema</summary>
+
 ![schema.png](docs/database/schema.png)
+
+</details>
 
 ### Setup Database
 
@@ -49,12 +55,16 @@ Good Night is the API service for manage user sleep records and support follow/u
 - Run `rake db:migrate`
 - Run `rake db:seed`
 
-Notes: Due to unsupported user registration yet, you can add more user on [seeds.rb](db/seeds.rb)
+**Notes**: Due to unsupported user registration yet, you can add more users in [seeds.rb](db/seeds.rb)
 
 ## Request Flows, Endpoints, and Dependencies
+
 #### Endpoints
 - [API Documentation](docs/api/api.md)
 
 #### Stateful Dependencies
 - PostgreSQL
 - Redis
+
+#### Test Documentation
+- [API Test Documentation](https://docs.google.com/document/d/1qnj4F4YYZ-npfZb1fwZpAaSv1VqA7xot4LzgpYB3s6A/edit?usp=sharing)
