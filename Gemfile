@@ -68,4 +68,5 @@ group :test do
   gem "selenium-webdriver"
   gem 'factory_bot_rails'
   gem 'mock_redis'
+  gem 'climate_control'
 end
