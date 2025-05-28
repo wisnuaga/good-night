@@ -53,7 +53,7 @@ Notes: Due to unsupported user registration yet, you can add more user on [seeds
 
 ## Request Flows, Endpoints, and Dependencies
 #### Endpoints
-- TBA
+- [API Documentation](docs/api/api.md)
 
 #### Stateful Dependencies
 - PostgreSQL
