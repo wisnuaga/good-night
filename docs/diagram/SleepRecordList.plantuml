@@ -12,4 +12,7 @@ database "PostgreSQL" as DB
 User -> Controller: GET /sleep_records
 activate Controller
 
+Controller -> Usecase: SleepRecordUsecase::List.new(<current_user>)\n.call(limit: <limit>, cursor: <cursor>)
+activate Usecase
+
 @enduml
