@@ -38,4 +38,12 @@ deactivate DB
 Repository --> Usecase: Return <current_session> OR null [sleep_record object]
 deactivate Repository
 
+alt Current Session Exists
+    Usecase --> Usecase: error: <current_session> existed
+    Usecase --> Controller: error: "You already have an active sleep session"
+    Controller --> User: HTTP 400 Bad Request\n"You already have an active sleep session"
+end
+
+
+
 @enduml
