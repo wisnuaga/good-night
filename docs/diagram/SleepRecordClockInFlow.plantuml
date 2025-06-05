@@ -1,5 +1,5 @@
-@startuml ClockInFlow
-title Clock In Flow - Sequence Diagram
+@startuml SleepRecordClockInFlow
+title Sleep Record Clock In Flow - Sequence Diagram
 
 ' Define actors and components
 actor User
