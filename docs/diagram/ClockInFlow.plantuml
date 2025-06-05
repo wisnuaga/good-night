@@ -31,4 +31,11 @@ end group
 Controller -> Usecase: clock_in(<current_user>)
 activate Usecase
 
+Usecase --> Repository: find_active_by_user(<current_user>.id)
+Repository --> DB: SELECT * FROM sleep_records \nWHERE user_id = user_id AND clock_out IS NULL \nLIMIT 1
+DB --> Repository: Return <current_session> OR null [sleep_record object]
+deactivate DB
+Repository --> Usecase: Return <current_session> OR null [sleep_record object]
+deactivate Repository
+
 @enduml
