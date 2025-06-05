@@ -7,6 +7,7 @@ participant "SleepRecordController" as Controller
 participant "SleepRecordUsecase::ClockOut" as Usecase
 participant "Follow Repository" as FollowRepository
 participant "SleepRecord Repository" as SleepRecordRepository
+participant "SleepRecordFanoutJob" as Job
 database "PostgreSQL" as DB
 
 ' Temporary auth via X-User-Id header (for fast development, to be replaced later)
@@ -45,6 +46,19 @@ alt Current Session doesn't Exist
     Usecase --> Usecase: error: <current_session> doesn't exist
     Usecase --> Controller: error: "No active sleep session found"
     Controller --> User: HTTP 400 Bad Request\n"No active sleep session found"
+end
+
+Usecase --> DB: UPDATE sleep_records\nSET clock_out = <clock_out>,\nsleep_time = <sleep_time>\nWHERE id = <current_session>.id
+activate DB
+note right of DB
+  Before saving, model calculates:\n
+  sleep_time = clock_out - clock_in
+end note
+DB --> Usecase: Return true OR false [boolean]
+deactivate DB
+
+alt True AND Count of followers <= LIMIT
+    Usecase -> Job: perform_later(<current_session>.id, <follower_ids>)
 end
 
 @enduml
