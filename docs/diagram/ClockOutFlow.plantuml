@@ -1,4 +1,12 @@
 @startuml ClockOutFlow
 title Clock Out Flow - Sequence Diagram
 
+' Define actors and components
+actor User
+participant "SleepRecordController" as Controller
+participant "SleepRecordUsecase::ClockOut" as Usecase
+participant "Follow Repository" as FollowRepository
+participant "SleepRecord Repository" as SleepRecordRepository
+database "PostgreSQL" as DB
+
 @enduml
