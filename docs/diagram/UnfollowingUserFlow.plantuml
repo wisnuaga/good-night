@@ -73,12 +73,12 @@ alt True
     end note
 end
 
-Usecase --> Controller: success or failure
+Usecase --> Controller: Return success or failure
 deactivate Usecase
 
-alt True
+alt Success
     Controller --> User: HTTP 200 OK\n"Unfollowed user successfully"
-else False
+else Failure
     Controller --> User: HTTP 500 Internal Server Error\n"Failed to unfollow user"
 end
 deactivate Controller

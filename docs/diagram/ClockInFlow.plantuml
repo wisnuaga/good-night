@@ -59,7 +59,7 @@ deactivate Usecase
 
 alt Success    
     Controller --> User: HTTP 201 OK\n"<new_session>"
-else Fail
+else Failure
     Controller --> User: HTTP 500 Internal Server Error\n"Failed to create sleep record"
 end
 deactivate Controller

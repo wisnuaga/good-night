@@ -74,7 +74,7 @@ deactivate Usecase
 
 alt Success    
     Controller --> User: HTTP 200 OK\n"Follow created successfully"
-else Fail
+else Failure
     Controller --> User: HTTP 500 Internal Server Error\n"Failed to create follow"
 end
 deactivate Controller
