@@ -1,5 +1,5 @@
-@startuml Following
-title Follow User Flow - Sequence Diagram
+@startuml FollowingUserFlow
+title Following User Flow - Sequence Diagram
 
 ' Define actors and components
 actor User
@@ -10,7 +10,7 @@ participant "Follow Repository" as FollowRepository
 database "PostgreSQL" as DB
 
 ' Temporary auth via X-User-Id header (for fast development, to be replaced later)
-group Temporary auth via X-User-Id header (for fast development, to be replaced later)
+group Temporary Authentication (Fast Dev Mode)
     User -> Controller: POST /users/:id/following\nHeader: X-User-Id: <user_id>
     activate Controller
 
@@ -18,70 +18,65 @@ group Temporary auth via X-User-Id header (for fast development, to be replaced 
       X-User-Id is temporary. To be replaced by JWT auth later.
     end note
 
-    Controller -> DB: SELECT * FROM users\nWHERE id = <user_id>
+    Controller -> DB: SELECT * FROM users\nWHERE id = <user_id> LIMIT 1;
     activate DB
-    DB --> Controller: Return user object / null
+    DB --> Controller: Return <current_user> OR null [user object]
     deactivate DB
 
     alt User object is null
-        Controller --> Controller: error: "user is null"
+        Controller --> Controller: error: "<current_user> is null"
         Controller --> User: HTTP 404 Not Found\n"User not found"
     end
 end group
 
-' Check: Cannot follow yourself
 alt User tries to follow themselves
-    Controller --> Controller: error: "user.id == followee_id"
+    Controller --> Controller: error: "<current_user> == followee_id"
     Controller --> User: HTTP 400 Bad Request\n"Cannot follow yourself"
 end
 
-' Controller delegates to usecase with current user and followee_id
 Controller -> Usecase: follow(user, followee_id)
 activate Usecase
 
-' Usecase queries followee existence
 Usecase -> UserRepository: find_by_id(followee_id)
 activate UserRepository
 UserRepository -> DB: SELECT * FROM users\nWHERE id = <followee_id>
 activate DB
-DB --> UserRepository: Return followee object
+DB --> UserRepository: Return <followee> OR null [user object]
 deactivate DB
-UserRepository --> Usecase: Return followee object
+UserRepository --> Usecase: Return <followee> OR null [user object]
 deactivate UserRepository
 
-' Usecase checks if follow relation already exists
-Usecase -> FollowRepository: exist?(follower: user, followee: followee)
+Usecase -> FollowRepository: exist?(follower: <current_user>, followee: <followee>)
 activate FollowRepository
-FollowRepository -> DB: SELECT 1 AS one FROM follows\nWHERE follower_id = <user_id>\nAND followee_id = <followee_id>\nLIMIT 1
+FollowRepository -> DB: SELECT 1 AS one FROM follows\nWHERE follower_id = <current_user.id>\nAND followee_id = <followee.id>\nLIMIT 1
 activate DB
-DB --> FollowRepository: true / false
+DB --> FollowRepository: Return true OR false [boolean]
 deactivate DB
 FollowRepository --> Usecase: existence boolean
 deactivate FollowRepository
 
-' If follow already exists, return error
-alt Already Exists
+alt Exists
     Usecase --> Usecase: error: "follow already exists"
     Usecase --> Controller: error: "Already following this user"
     Controller --> User: HTTP 400 Bad Request\n"Already following this user"
 end
 
-' Branch: create new follow record if not already exists
 Usecase -> FollowRepository: create(follower: user, followee: followee)
 activate FollowRepository
 FollowRepository -> DB: INSERT INTO follows (follower_id, followee_id, created_at)\nVALUES (<user_id>, <followee_id>, CURRENT_TIMESTAMP)
 activate DB
-DB --> FollowRepository: created follow record
+DB --> FollowRepository: Return created <follow> record [follow object]
 deactivate DB
-FollowRepository --> Usecase: follow object
+FollowRepository --> Usecase: Return created <follow> record [follow object]
 deactivate FollowRepository
-
-' Usecase returns result to controller
-Usecase --> Controller: Return success
+Usecase --> Controller: Return success or failure
 deactivate Usecase
 
-' Final HTTP response to user
-Controller --> User: HTTP 200 OK\n"Follow created successfully"
+alt Success    
+    Controller --> User: HTTP 200 OK\n"Follow created successfully"
+else Fail
+    Controller --> User: HTTP 500 Internal Server Error\n"Failed to create follow"
+end
 deactivate Controller
 
 @enduml
