@@ -1,5 +1,5 @@
-@startuml Following
-title Follow User Flow - Sequence Diagram
+@startuml UnfollowingUserFlow
+title Unfollowing User Flow - Sequence Diagram
 
 ' Define actors and components
 actor User
@@ -21,7 +21,7 @@ group Temporary Authentication (Fast Dev Mode)
 
     Controller -> DB: SELECT * FROM users\nWHERE id = <user_id> LIMIT 1;
     activate DB
-    DB --> Controller: Return <current_user> (user object) OR null
+    DB --> Controller: Return <current_user> OR null [user object]
     deactivate DB
 
     alt User object is null
@@ -30,62 +30,57 @@ group Temporary Authentication (Fast Dev Mode)
     end
 end group
 
-' Controller delegates to usecase with current user and followee_id
 Controller -> Usecase: unfollow(<current_user>, followee_id)
 activate Usecase
 
-' Usecase queries followee existence
 Usecase -> UserRepository: find_by_id(followee_id)
 activate UserRepository
 UserRepository -> DB: SELECT * FROM users\nWHERE id = <followee_id>
 activate DB
-DB --> UserRepository: Return <followee> (user object) OR null
+DB --> UserRepository: Return <followee> OR null [user object]
 deactivate DB
-UserRepository --> Usecase: Return <followee> (user object) OR null
+UserRepository --> Usecase: Return <followee> OR null [user object]
 deactivate UserRepository
 
-' Usecase checks if follow relation already exists
 Usecase -> FollowRepository: find_by_follower_and_followee(follower: <current_user>, followee: <followee>)
 activate FollowRepository
 FollowRepository -> DB: SELECT * FROM follows\nWHERE follower_id = <current_user.id>\nAND followee_id = <followee.id>\nLIMIT 1
 activate DB
-DB --> FollowRepository: Return <current_follow> (follow object) OR null
+DB --> FollowRepository: Return <current_follow> OR null [follow object]
 deactivate DB
-FollowRepository --> Usecase: Return <current_follow> (follow object) OR null
+FollowRepository --> Usecase: Return <current_follow> OR null [follow object]
 deactivate FollowRepository
 
-' If follow already exists, return error
 alt Not Exists
     Usecase --> Usecase: error: "<current_follow> is not exists"
     Usecase --> Controller: error: "Not following this user"
     Controller --> User: HTTP 400 Bad Request\n"Not following this user"
 end
 
-' Branch: create new follow record if not already exists
 Usecase -> FollowRepository: <current_follow>.destroy!
 activate FollowRepository
 FollowRepository -> DB: DELETE FROM follows WHERE id = <current_follow.id> LIMIT 1;
 activate DB
-DB --> FollowRepository: Return true OR false
+DB --> FollowRepository: Return true OR false [boolean]
 deactivate DB
-FollowRepository --> Usecase: Return true OR false
+FollowRepository --> Usecase: Return true OR false [boolean]
 deactivate FollowRepository
 
-alt Successfully unfollowed
+alt True
     Usecase -> Job: perform_later(<current_user.id>, <followee.id>)
     note right of Job
       Background job will run after 1 hour\n(set(wait: 1.hour))
     end note
-    Usecase --> Controller: success
-    deactivate Usecase
-    Controller --> User: HTTP 200 OK\n"Unfollowed user successfully"
-    deactivate Controller
-else Unfollow failed
-    Usecase --> Usecase: error: "Failed to unfollow user"
-    Usecase --> Controller: error: "Failed to unfollow user"
-    Controller --> User: HTTP 500 Internal Server Error\n"Failed to unfollow user"
-    deactivate Usecase
-    deactivate Controller
 end
+
+Usecase --> Controller: success or failure
+deactivate Usecase
+
+alt True
+    Controller --> User: HTTP 200 OK\n"Unfollowed user successfully"
+else False
+    Controller --> User: HTTP 500 Internal Server Error\n"Failed to unfollow user"
+end
+deactivate Controller
 
 @enduml
