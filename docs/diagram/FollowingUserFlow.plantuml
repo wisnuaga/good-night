@@ -9,30 +9,8 @@ participant "User Repository" as UserRepository
 participant "Follow Repository" as FollowRepository
 database "PostgreSQL" as DB
 
-' Temporary auth via X-User-Id header (for fast development, to be replaced later)
-group Temporary Authentication (Fast Dev Mode)
-    User -> Controller: POST /users/:id/following\nHeader: X-User-Id: <user_id>
-    activate Controller
-
-    note right of Controller
-      X-User-Id is temporary. To be replaced by JWT auth later.
-    end note
-
-    Controller -> DB: SELECT * FROM users\nWHERE id = <user_id> LIMIT 1;
-    activate DB
-    DB --> Controller: Return <current_user> OR null [user object]
-    deactivate DB
-
-    alt User object is null
-        Controller --> Controller: error: "<current_user> is null"
-        Controller --> User: HTTP 404 Not Found\n"User not found"
-    end
-end group
-
-alt User tries to follow themselves
-    Controller --> Controller: error: "<current_user> == followee_id"
-    Controller --> User: HTTP 400 Bad Request\n"Cannot follow yourself"
-end
+User -> Controller: POST /users/:id/following
+activate Controller
 
 Controller -> Usecase: follow(user, followee_id)
 activate Usecase
