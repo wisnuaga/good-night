@@ -70,4 +70,14 @@ alt True AND Count of followers <= Repository::FANOUT_LIMIT
     Usecase -> Job: perform_later(<current_session>.id, <follower_ids>)
 end
 
+Usecase --> Controller: Return success or failure
+deactivate Usecase
+
+alt Success
+    Controller --> User: HTTP 200 OK\n"<current_session>"
+else Failure
+    Controller --> User: HTTP 500 Internal Server Error\n"Failed to clock out"
+end
+deactivate Controller
+
 @enduml
