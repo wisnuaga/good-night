@@ -1,0 +1,69 @@
+@startuml UnfollowingUserFlow
+title Unfollowing User Flow
+
+' Define actors and components
+actor User
+participant "FollowsController" as Controller
+participant "FollowUsecase::Unfollow" as Usecase
+participant "UserRepository" as UserRepository
+participant "FollowRepository" as FollowRepository
+participant "RemoveFanoutAfterUnfollowJob" as Job
+database "PostgreSQL" as DB
+
+User -> Controller: DELETE /users/:id/following
+activate Controller
+
+Controller -> Usecase: new(user: [current_user], followee_id: params[:id].to_i).call
+activate Usecase
+
+Usecase -> UserRepository: find_by_id([followee_id])
+activate UserRepository
+UserRepository -> DB: SELECT * FROM users\nWHERE id = [followee_id]
+activate DB
+DB --> UserRepository: Return [followee]
+deactivate DB
+UserRepository --> Usecase: Return [followee]
+deactivate UserRepository
+
+Usecase -> FollowRepository: find_by_follower_and_followee(follower: [user], followee: [followee])
+activate FollowRepository
+FollowRepository -> DB: SELECT * FROM follows\nWHERE follower_id = [user].id\nAND followee_id = [followee].id\nLIMIT 1
+activate DB
+DB --> FollowRepository: Return [current_follow]
+deactivate DB
+FollowRepository --> Usecase: Return [current_follow]
+deactivate FollowRepository
+
+alt [current_follow] not exists
+    Usecase --> Usecase: error: "[current_follow] is nil"
+    Usecase --> Controller: error: "Not following this user"
+    Controller --> User: HTTP 400 Bad Request\n"Not following this user"
+end
+
+Usecase -> FollowRepository: [current_follow].destroy!
+activate FollowRepository
+FollowRepository -> DB: DELETE FROM follows WHERE id = [current_follow].id LIMIT 1;
+activate DB
+DB --> FollowRepository: Return true OR false
+deactivate DB
+FollowRepository --> Usecase: Return true OR false
+deactivate FollowRepository
+
+alt True
+    Usecase -> Job: perform_later([user].id, [followee].id)
+    note right of Job
+      Background job will run after 1 hour\n(set(wait: 1.hour))
+    end note
+end
+
+Usecase --> Controller: Return success or failure
+deactivate Usecase
+
+alt Success
+    Controller --> User: HTTP 200 OK\n"Unfollowed user successfully"
+else Failure
+    Controller --> User: HTTP 500 Internal Server Error\n"Failed to unfollow user"
+end
+deactivate Controller
+
+@enduml

@@ -1,0 +1,65 @@
+@startuml FollowingUserFlow
+title Following User Flow
+
+' Define actors and components
+actor User
+participant "FollowsController" as Controller
+participant "FollowUsecase::Follow" as Usecase
+participant "UserRepository" as UserRepository
+participant "FollowRepository" as FollowRepository
+database "PostgreSQL" as DB
+
+User -> Controller: POST /users/:id/following
+activate Controller
+
+alt Current User ID equals to params[:id]
+    Controller --> Controller: error: [current_user].id == params[:id].to_i
+    Controller --> User: HTTP 400 Bad Request\n"Cannot follow yourself"
+end
+
+Controller -> Usecase: new(user: [current_user], followee_id: params[:id].to_i).call
+activate Usecase
+
+Usecase -> UserRepository: find_by_id([followee_id])
+activate UserRepository
+UserRepository -> DB: SELECT * FROM users\nWHERE id = [followee_id]
+activate DB
+DB --> UserRepository: Return [followee]
+deactivate DB
+UserRepository --> Usecase: Return [followee]
+deactivate UserRepository
+
+Usecase -> FollowRepository: exist?(follower: [user], followee: [followee])
+activate FollowRepository
+FollowRepository -> DB: SELECT 1 AS one FROM follows\nWHERE follower_id = [user].id\nAND followee_id = [followee].id\nLIMIT 1
+activate DB
+DB --> FollowRepository: Return true OR false
+deactivate DB
+FollowRepository --> Usecase: Return true OR false
+deactivate FollowRepository
+
+alt True
+    Usecase --> Usecase: error: "follow object already exists"
+    Usecase --> Controller: error: "Already following this user"
+    Controller --> User: HTTP 400 Bad Request\n"Already following this user"
+end
+
+Usecase -> FollowRepository: create(follower: [user], followee: [followee])
+activate FollowRepository
+FollowRepository -> DB: INSERT INTO follows (follower_id, followee_id, created_at)\nVALUES ([user].id, [followee].id, CURRENT_TIMESTAMP)
+activate DB
+DB --> FollowRepository: Return [new_record]
+deactivate DB
+FollowRepository --> Usecase: Return [new_record]
+deactivate FollowRepository
+Usecase --> Controller: Return success or failure
+deactivate Usecase
+
+alt Success    
+    Controller --> User: HTTP 200 OK\n"Follow created successfully"
+else Failure
+    Controller --> User: HTTP 500 Internal Server Error\n"Failed to create follow"
+end
+deactivate Controller
+
+@enduml

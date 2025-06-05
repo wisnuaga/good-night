@@ -1,0 +1,115 @@
+@startuml RemoveFanoutAfterUnfollowJobFlow
+title Remove Fanout After Unfollow Job Flow
+
+actor "Async Job Trigger" as Trigger
+participant "RemoveFanoutAfterUnfollowJob" as Job
+participant "UserRepository" as UserRepository
+participant "FollowRepository" as FollowRepository
+participant "SleepRecordRepository" as SleepRecordRepository
+participant "FanoutRepository" as FanoutRepository
+database "Redis" as Cache
+database "PostgreSQL" as DB
+
+Trigger -> Job: perform(user_id, unfollowed_user_id)
+activate Job
+
+Job -> Cache: SET remove_lock:[user_id] NX EX 60
+activate Cache
+Cache --> Job: Return true OR false
+note right of Job
+    true -> Successfully locked
+    false -> Already running
+end note
+deactivate Cache
+
+alt Not Locked
+    Job --> Trigger: Exit early
+    deactivate Job
+end
+
+Job -> UserRepository: find_by_id([user_id])
+activate UserRepository
+UserRepository --> DB: SELECT * FROM users WHERE id = [user_id]
+activate DB
+DB --> UserRepository: Return [user]
+deactivate DB
+UserRepository --> Job: Return [user]
+deactivate UserRepository
+
+Job -> UserRepository: find_by_id([unfollowed_user_id])
+activate UserRepository
+UserRepository --> DB: SELECT * FROM users WHERE id = [unfollowed_user_id]
+activate DB
+DB --> UserRepository: Return [followee]
+deactivate DB
+UserRepository --> Job: Return [followee]
+deactivate UserRepository
+
+alt User AND Followee Not Found
+    Job --> Trigger: Exit early
+    deactivate Job
+end
+
+Job -> FollowRepository: exists?(follower: [user], followee: [followee])
+activate FollowRepository
+FollowRepository --> DB: SELECT 1 FROM follows WHERE follower_id = [user].id AND followee_id = [followee].id LIMIT 1
+activate DB
+DB --> FollowRepository: Return true or false
+deactivate DB
+FollowRepository --> Job: Return true or false
+deactivate FollowRepository
+
+alt Still Following
+    Job --> Trigger: Exit early
+    deactivate Job
+end
+
+note right of Job
+    Initialize:
+    cursor_time = nil
+    sleep_time = 0.05
+end note
+
+loop While [cursor_time] not NULL OR First Loop
+    Job -> SleepRecordRepository: list_by_user_ids(user_ids: [unfollowed_user_id], cursor: cursor_time, limit: FEED_LIST_LIMIT)
+    activate SleepRecordRepository
+    SleepRecordRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id = [unfollowed_user_id]\nAND sleep_time < [cursor_time]\nORDER BY sleep_time DESC LIMIT [FEED_LIST_LIMIT]
+    activate DB
+    DB --> SleepRecordRepository: Return [records]
+    deactivate DB
+    SleepRecordRepository --> Job: Return [records]
+    deactivate SleepRecordRepository
+
+    alt Records Empty
+        break
+    end
+
+    note right of Job
+        record_ids = [records].map(&:id)
+    end note
+
+    Job -> FanoutRepository: remove_from_feed(user_id: [user_id], sleep_record_ids: [record_ids])
+    activate FanoutRepository
+
+    loop For each id in sleep_record_ids
+        FanoutRepository -> Cache: ZREM fanout:[user_id] [id]
+        activate Cache
+        Cache --> FanoutRepository: Return 1 if removed, 0 if not found
+        deactivate Cache
+    end
+    deactivate FanoutRepository
+
+    note right of Job
+        cursor_time = [records].last&.sleep_time
+    end note
+
+    Job -> Job: sleep([sleep_time])
+end
+
+Job -> Cache: DEL remove_lock:[user_id]
+activate Cache
+Cache --> Job: Return OK
+deactivate Cache
+
+deactivate Job
+@enduml

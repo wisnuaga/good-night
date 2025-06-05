@@ -1,0 +1,34 @@
+@startuml AuthenticationFlow
+title User Authentication Flow - Sequence Diagram
+
+' Define actors and components
+actor User
+participant "Controller" as Controller
+database "PostgreSQL" as DB
+
+User -> Controller: [Method]: [Endpoint] (i.e: POST /users/:id/following)\nHeader: X-User-Id: [user_id]
+activate Controller
+
+note right of Controller
+  X-User-Id is a temporary authentication method\n
+  Will be replaced with JWT in production.
+end note
+
+Controller -> DB: SELECT * FROM users\nWHERE id = [user_id] LIMIT 1;
+activate DB
+DB --> Controller: Return [current_user]
+deactivate DB
+
+alt User not found
+    Controller --> Controller: error: "[current_user] is nil"
+    Controller --> User: HTTP 404 Not Found\n"User not found"
+else User found
+    Controller --> Controller: proceed with processing
+    note right of Controller
+      Continue to handle request\n
+      using [current_user].
+    end note
+end
+
+deactivate Controller
+@enduml

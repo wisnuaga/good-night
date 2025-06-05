@@ -12,20 +12,21 @@ class RepairSleepRecordFanoutJob < ApplicationJob
       follow_repository = FollowRepository.new
 
       existing_ids = fanout_repo.list_fanout(user_id: user_id)
-      correct_records = []
 
       first = true
       followee_cursor = nil
-      cursor_time = nil
+      followee_limit = 10
+      sleep_time = 0.05 # 50ms
 
       loop do
+        # TODO: Improvement -> this query not ordered by most longest sleep_time within last 7 days
         followee_ids, followee_cursor = follow_repository.list_followee_ids_batch(
           user_id: user_id,
           cursor: followee_cursor,
-          limit: Repository::FANOUT_LIMIT
+          limit: followee_limit
         )
 
-        # include self on first loop only
+        # Include self on first loop only
         if first
           followee_ids << user_id
           first = false
@@ -33,27 +34,31 @@ class RepairSleepRecordFanoutJob < ApplicationJob
 
         break if followee_ids.empty?
 
-        batch_limit = SleepRecordRepository::FEED_LIST_LIMIT - correct_records.size
-        break if batch_limit <= 0
+        correct_records = []
+        cursor_time = nil
+        loop do
+          batch_records = sleep_record_repo.list_by_user_ids(
+            user_ids: followee_ids,
+            cursor: cursor_time
+          )
 
-        records = sleep_record_repo.list_by_user_ids(
-          user_ids: followee_ids,
-          cursor: cursor_time,
-          limit: batch_limit
-        )
+          break if batch_records.empty?
 
-        break if records.empty?
+          correct_records.concat(batch_records)
+          correct_records.uniq!(&:id)
+          cursor_time = batch_records.last&.sleep_time
 
-        correct_records.concat(records)
-        correct_records.uniq!(&:id)
-        cursor_time = records.last.sleep_time
+          missing_records = correct_records.reject { |r| existing_ids.include?(r.id) }
+          missing_records.each do |record|
+            fanout_repo.add_to_feed(user_id: user_id, sleep_record: record)
+          end
 
-        break if followee_cursor.nil? || correct_records.size >= SleepRecordRepository::FEED_LIST_LIMIT
-      end
+          break if cursor_time.nil?
+          sleep(sleep_time)
+        end
 
-      missing_records = correct_records.reject { |r| existing_ids.include?(r.id) }
-      missing_records.each do |record|
-        fanout_repo.add_to_feed(user_id: user_id, sleep_record: record)
+        break if followee_cursor.nil?
+        sleep(sleep_time)
       end
     rescue => e
       Rails.logger.error("[RepairSleepRecordFanoutJob] Failed for user #{user_id}: #{e.message}")

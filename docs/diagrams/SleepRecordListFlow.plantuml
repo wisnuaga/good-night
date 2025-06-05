@@ -1,0 +1,122 @@
+@startuml SleepRecordListFlow
+title Sleep Record List Flow
+
+actor User
+participant "SleepRecordController" as Controller
+participant "SleepRecordUsecase::List" as Usecase
+participant "FanoutRepository" as FanoutRepository
+participant "SleepRecordRepository" as SleepRecordRepository
+participant "FollowRepository" as FollowRepository
+participant "CacheWrapper" as CacheWrapper
+participant "RepairSleepRecordFanoutJob" as Job
+database "Redis" as Cache
+database "PostgreSQL" as DB
+
+User -> Controller: GET /sleep_records
+activate Controller
+
+Controller -> Usecase: new(user: [current_user])\n.call(limit: params[:limit], cursor: params[:cursor])
+activate Usecase
+
+' Sort records
+note right of Usecase
+    Decode [cursor]:
+    decoded_cursor: decode_cursor([cursor])
+end note
+
+Usecase --> FanoutRepository: list_fanout(user_id: [user].id, cursor: [decoded_cursor], limit: [limit])
+activate FanoutRepository
+FanoutRepository --> Cache: ZREVRANGEBYSCORE fanout:[user].id "([decoded_cursor]" "-inf"\nLIMIT 0 [limit])
+activate Cache
+Cache --> FanoutRepository: Return [record_ids]
+deactivate Cache
+FanoutRepository --> Usecase: Return [record_ids]
+deactivate FanoutRepository
+
+Usecase --> FollowRepository: list_followee_ids(user_id: [user].id, limit: Repository::FANOUT_LIMIT + 1)
+activate FollowRepository
+FollowRepository --> DB: SELECT followee_id FROM follows \nWHERE follower_id = [user].id ORDER BY id LIMIT Repository::FANOUT_LIMIT + 1
+activate DB
+DB --> FollowRepository: Return [followee_ids]
+deactivate DB
+FollowRepository --> Usecase: Return [followee_ids]
+deactivate FollowRepository
+
+alt [record_ids] is not empty
+    ' List by IDs
+    Usecase --> SleepRecordRepository: list_by_ids(ids: [record_ids])
+    activate SleepRecordRepository
+    SleepRecordRepository --> CacheWrapper: get_many([record_ids])
+    activate CacheWrapper
+    CacheWrapper -> Cache: MGET sleep_record:[id1], sleep_record:[id2], ...
+    Cache --> CacheWrapper: Return [sleep_record_1, nil, sleep_record_3, ...]
+    CacheWrapper --> SleepRecordRepository: Return [found_objects], [missed_ids]
+    deactivate CacheWrapper
+    
+    alt [missed_ids] is not empty
+        SleepRecordRepository --> DB: SELECT * FROM sleep_records\nWHERE id IN [missed_ids]
+        activate DB
+        DB --> SleepRecordRepository: Return [missing_records]
+        deactivate DB
+        SleepRecordRepository --> Cache: SETEX sleep_record:[id] [ttl] [serialized_record] (for each)
+    end
+
+    SleepRecordRepository --> Usecase: Return [records]
+    deactivate SleepRecordRepository
+
+    ' Sort records
+    note right of Usecase
+        Sort [records] by [record_ids]
+    end note
+
+    ' Check record staleness
+    Usecase --> SleepRecordRepository: count_by_user_ids(user_ids: [followee_ids], cursor: [decoded_cursor], limit: [limit])
+    activate SleepRecordRepository
+    SleepRecordRepository --> DB: SELECT COUNT(*) FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nORDER BY sleep_time DESC LIMIT [limit] 
+    activate DB
+    DB --> SleepRecordRepository: Return [total]
+    deactivate DB
+    SleepRecordRepository --> Usecase: Return [total]
+    deactivate SleepRecordRepository
+    note right of Usecase
+        Calculate staleness:
+        missing = [total] - [record_ids].size
+        threshold = [ MIN_THRESHOLD, ([total] * FRACTION).ceil ].max
+    end note
+
+    alt missing >= threshold
+        Usecase -> Job: perform_later([user].id)
+    end
+else
+    Usecase --> SleepRecordRepository: list_by_user_ids(user_ids: [followee_ids], cursor: [decoded_cursor], limit: [limit])
+    activate SleepRecordRepository
+    SleepRecordRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nORDER BY sleep_time DESC LIMIT [limit] 
+    activate DB
+    DB --> SleepRecordRepository: Return [records]
+    deactivate DB
+    SleepRecordRepository --> Usecase: Return [records]
+    deactivate SleepRecordRepository
+
+    alt [records] is empty
+        Usecase -> Job: perform_later([user].id)
+        note right of Usecase
+            Prevent following high follower user that doesn't trigger Fanout-in-Write job
+        end note
+    end
+end
+
+note right of Usecase
+    Calculate next cursor:
+    next_cursor : encode_cursor([records].last&.sleep_time)
+end note
+Usecase --> Controller: Return success or failure
+deactivate Usecase
+
+alt Success
+    Controller --> User: HTTP 200 OK\n"[records]"
+else Failure
+    Controller --> User: HTTP 500 Internal Server Error\n"Internal Server Error"
+end
+deactivate Controller
+
+@enduml

@@ -19,6 +19,7 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
       fanout_repo = FanoutRepository.new
 
       cursor_time = nil
+      sleep_time = 0.05 # 50ms
 
       loop do
         records = sleep_record_repo.list_by_user_ids(
@@ -33,7 +34,11 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
         fanout_repo.remove_from_feed(user_id: user_id, sleep_record_ids: record_ids)
 
         # Move cursor to last record's sleep_time for next batch
-        cursor_time = records.last.sleep_time
+        cursor_time = records.last&.sleep_time
+
+        break if cursor_time.nil?
+
+        sleep(sleep_time)
       end
     rescue => e
       Rails.logger.error("[RemoveFanoutAfterUnfollowJob] Failed for user #{user_id} unfollowed #{unfollowed_user_id}: #{e.message}")

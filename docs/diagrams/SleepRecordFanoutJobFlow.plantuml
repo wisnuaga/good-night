@@ -1,0 +1,70 @@
+@startuml SleepRecordFanoutJobFlow
+title Sleep Record Fanout Job Flow
+
+actor "Async Job Trigger" as Trigger
+participant "SleepRecordFanoutJob" as Job
+participant "SleepRecordRepository" as SleepRecordRepository
+participant "FanoutRepository" as FanoutRepository
+database "Redis" as Cache
+database "PostgreSQL" as DB
+
+Trigger -> Job: perform(sleep_record_id, follower_ids)
+activate Job
+
+Job -> SleepRecordRepository: find_by_id([sleep_record_id])
+activate SleepRecordRepository
+SleepRecordRepository --> DB: SELECT * FROM sleep_records WHERE id = [sleep_record_id] LIMIT 1
+activate DB
+DB --> SleepRecordRepository: Return [sleep_record] OR nil
+deactivate DB
+SleepRecordRepository --> Job: Return [sleep_record] OR nil
+deactivate SleepRecordRepository
+
+alt sleep_record is nil
+    Job --> Trigger: Exit early
+    deactivate Job
+end
+
+Job -> FanoutRepository: write_fanout(sleep_record: [sleep_record], follower_ids: [follower_ids])
+activate FanoutRepository
+
+loop For each follower_id in [follower_ids]
+    FanoutRepository -> FanoutRepository: add_to_feed(user_id: [follower_id], sleep_record: [sleep_record])
+    activate FanoutRepository
+
+    note right of FanoutRepository
+        key = feed_key(user_id)
+        score = sleep_record.sleep_time || 0
+    end note
+
+    FanoutRepository -> Cache: ZADD fanout:[user_id] ([sleep_record].sleep_time, [sleep_record].id) NX
+    activate Cache
+    Cache --> FanoutRepository: Return 1 if added, 0 if exists
+    deactivate Cache
+
+    FanoutRepository -> Cache: ZREMRANGEBYRANK fanout:[user_id] 0 -(FANOUT_LIMIT + 1)
+    activate Cache
+    Cache --> FanoutRepository: Return count removed
+    deactivate Cache
+
+    FanoutRepository -> Cache: EXPIRE fanout:[user_id] FEED_TTL_SECONDS
+    activate Cache
+    Cache --> FanoutRepository: Return true if success
+    deactivate Cache
+
+    deactivate FanoutRepository
+end
+
+FanoutRepository --> Job: Return after all followers updated
+deactivate FanoutRepository
+
+Job --> Trigger: Complete
+deactivate Job
+
+alt Exception occurs
+    Job -> Job: Log error
+    Job --> Trigger: Fail gracefully
+    deactivate Job
+end
+
+@enduml

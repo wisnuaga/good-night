@@ -2,12 +2,12 @@ require "rails_helper"
 
 RSpec.describe RepairSleepRecordFanoutJob, type: :job do
   let(:user_id) { 1 }
+  let(:lock_key) { "repair_lock:#{user_id}" }
+
   let(:followee_ids_batch_1) { [2, 3] }
   let(:followee_ids_batch_2) { [4] }
-  let(:lock_key) { "repair_lock:#{user_id}" }
+
   let(:existing_ids) { [10, 11] }
-  let(:feed_limit) { 3 }
-  let(:feed_ttl) { 3600 }
 
   let(:sleep_record_repo) { instance_double("SleepRecordRepository") }
   let(:fanout_repo) { instance_double("FanoutRepository") }
@@ -27,10 +27,6 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
   end
 
   before do
-    stub_const("SleepRecordRepository::FEED_LIST_LIMIT", feed_limit)
-    stub_const("SleepRecordRepository::FEED_TTL_SECONDS", feed_ttl)
-    stub_const("Repository::FANOUT_LIMIT", 2)
-
     allow($redis).to receive(:set).with(lock_key, true, nx: true, ex: 60).and_return(true)
     allow($redis).to receive(:del).with(lock_key)
 
@@ -40,35 +36,45 @@ RSpec.describe RepairSleepRecordFanoutJob, type: :job do
 
     allow(fanout_repo).to receive(:list_fanout).with(user_id: user_id).and_return(existing_ids)
     allow(fanout_repo).to receive(:add_to_feed)
+
+    # Followee batch calls - outer loop
+    allow(follow_repo).to receive(:list_followee_ids_batch)
+                            .with(user_id: user_id, cursor: nil, limit: 10)
+                            .and_return([followee_ids_batch_1, "cursor-1"])
+
+    allow(follow_repo).to receive(:list_followee_ids_batch)
+                            .with(user_id: user_id, cursor: "cursor-1", limit: 10)
+                            .and_return([followee_ids_batch_2, nil])
   end
 
   describe "#perform" do
     context "when lock is acquired" do
       before do
-        allow(follow_repo).to receive(:list_followee_ids_batch)
-                                .with(user_id: user_id, cursor: nil, limit: 2)
-                                .and_return([followee_ids_batch_1, "cursor-1"])
-
-        allow(follow_repo).to receive(:list_followee_ids_batch)
-                                .with(user_id: user_id, cursor: "cursor-1", limit: 2)
-                                .and_return([followee_ids_batch_2, nil])
-
+        # Sleep records for first batch (includes user_id appended)
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_1 + [user_id], cursor: nil, limit: 3)
+                                      .with(user_ids: followee_ids_batch_1 + [user_id], cursor: nil)
                                       .and_return(records_batch_1)
 
+        # On next call with cursor from last sleep_time of records_batch_1, return empty to end inner loop
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_1.last.sleep_time, limit: 1)
+                                      .with(user_ids: followee_ids_batch_1 + [user_id], cursor: records_batch_1.last.sleep_time)
+                                      .and_return([])
+
+        # Sleep records for second batch (no self user_id appended)
+        allow(sleep_record_repo).to receive(:list_by_user_ids)
+                                      .with(user_ids: followee_ids_batch_2, cursor: nil)
                                       .and_return(records_batch_2)
 
+        # Next call cursor from last sleep_time of records_batch_2 returns empty
         allow(sleep_record_repo).to receive(:list_by_user_ids)
-                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_2.last.sleep_time, limit: 0)
+                                      .with(user_ids: followee_ids_batch_2, cursor: records_batch_2.last.sleep_time)
                                       .and_return([])
       end
 
       it "adds only missing records to the feed and releases the lock" do
         described_class.perform_now(user_id)
 
+        # It should add all records with IDs not in existing_ids
         expect(fanout_repo).to have_received(:add_to_feed).with(user_id: user_id, sleep_record: records_batch_1[0])
         expect(fanout_repo).to have_received(:add_to_feed).with(user_id: user_id, sleep_record: records_batch_1[1])
         expect(fanout_repo).to have_received(:add_to_feed).with(user_id: user_id, sleep_record: records_batch_2[0])
