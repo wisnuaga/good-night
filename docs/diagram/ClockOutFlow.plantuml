@@ -1,0 +1,4 @@
+@startuml ClockOutFlow
+title Clock Out Flow - Sequence Diagram
+
+@enduml
