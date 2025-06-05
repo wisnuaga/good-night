@@ -16,7 +16,7 @@ class RepairSleepRecordFanoutJob < ApplicationJob
       first = true
       followee_cursor = nil
       followee_limit = 10
-      sleep_time = 0.05
+      sleep_time = 0.05 # 50ms
 
       loop do
         # TODO: Improvement -> this query not ordered by most longest sleep_time within last 7 days
