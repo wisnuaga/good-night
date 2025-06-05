@@ -1,0 +1,4 @@
+@startuml SleepRecordList
+title Sleep Record List - Sequence Diagram
+
+@enduml
