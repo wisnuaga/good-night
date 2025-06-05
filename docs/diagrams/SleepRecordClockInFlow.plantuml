@@ -5,7 +5,7 @@ title Sleep Record Clock In Flow
 actor User
 participant "SleepRecordController" as Controller
 participant "SleepRecordUsecase::ClockIn" as Usecase
-participant "SleepRecord Repository" as Repository
+participant "SleepRecordRepository" as Repository
 database "PostgreSQL" as DB
 
 User -> Controller: POST /sleep_records/clock_in

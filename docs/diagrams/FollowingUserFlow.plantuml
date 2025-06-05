@@ -5,8 +5,8 @@ title Following User Flow
 actor User
 participant "FollowsController" as Controller
 participant "FollowUsecase::Follow" as Usecase
-participant "User Repository" as UserRepository
-participant "Follow Repository" as FollowRepository
+participant "UserRepository" as UserRepository
+participant "FollowRepository" as FollowRepository
 database "PostgreSQL" as DB
 
 User -> Controller: POST /users/:id/following

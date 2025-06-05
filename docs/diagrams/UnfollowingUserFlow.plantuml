@@ -5,8 +5,8 @@ title Unfollowing User Flow
 actor User
 participant "FollowsController" as Controller
 participant "FollowUsecase::Unfollow" as Usecase
-participant "User Repository" as UserRepository
-participant "Follow Repository" as FollowRepository
+participant "UserRepository" as UserRepository
+participant "FollowRepository" as FollowRepository
 participant "RemoveFanoutAfterUnfollowJob" as Job
 database "PostgreSQL" as DB
 

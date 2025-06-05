@@ -4,9 +4,9 @@ title Sleep Record List Flow
 actor User
 participant "SleepRecordController" as Controller
 participant "SleepRecordUsecase::List" as Usecase
-participant "Fanout Repository" as FanoutRepository
-participant "SleepRecord Repository" as SleepRecordRepository
-participant "Follow Repository" as FollowRepository
+participant "FanoutRepository" as FanoutRepository
+participant "SleepRecordRepository" as SleepRecordRepository
+participant "FollowRepository" as FollowRepository
 participant "CacheWrapper" as CacheWrapper
 participant "RepairSleepRecordFanoutJob" as Job
 database "Redis" as Cache

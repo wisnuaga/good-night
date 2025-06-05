@@ -5,8 +5,8 @@ title Sleep Record Clock Out Flow
 actor User
 participant "SleepRecordController" as Controller
 participant "SleepRecordUsecase::ClockOut" as Usecase
-participant "SleepRecord Repository" as SleepRecordRepository
-participant "Follow Repository" as FollowRepository
+participant "SleepRecordRepository" as SleepRecordRepository
+participant "FollowRepository" as FollowRepository
 participant "SleepRecordFanoutJob" as Job
 database "PostgreSQL" as DB
 
