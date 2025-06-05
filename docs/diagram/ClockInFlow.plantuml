@@ -1,0 +1,4 @@
+@startuml ClockInFlow
+title Clock In Flow - Sequence Diagram
+
+@enduml
