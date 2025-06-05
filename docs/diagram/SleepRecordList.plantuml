@@ -1,4 +1,12 @@
 @startuml SleepRecordList
 title Sleep Record List - Sequence Diagram
 
+' Define actors and components
+actor User
+participant "SleepRecordController" as Controller
+participant "SleepRecordUsecase::List" as Usecase
+participant "SleepRecord Repository" as SleepRecordRepository
+participant "RepairSleepRecordFanoutJob" as Job
+database "PostgreSQL" as DB
+
 @enduml
