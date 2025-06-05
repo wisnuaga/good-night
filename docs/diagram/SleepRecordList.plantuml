@@ -8,12 +8,23 @@ participant "SleepRecordUsecase::List" as Usecase
 participant "Fanout Repository" as FanoutRepository
 participant "SleepRecord Repository" as SleepRecordRepository
 participant "RepairSleepRecordFanoutJob" as Job
+database "Redis" as Cache
 database "PostgreSQL" as DB
 
 User -> Controller: GET /sleep_records
 activate Controller
 
-Controller -> Usecase: SleepRecordUsecase::List.new(<current_user>)\n.call(limit: <limit>, cursor: <cursor>)
+Controller -> Usecase: SleepRecordUsecase::List.new(user: <current_user>)\n.call(limit: <limit>, cursor: <cursor>)
 activate Usecase
+
+Usecase --> FanoutRepository: list_fanout(user_id: <user>.id, cursor: <cursor>, limit: <limit>)
+activate FanoutRepository
+FanoutRepository --> Cache: zrevrangebyscore(key, "(#{cursor}", "-inf", limit: [0, limit]).map(&:to_i)
+activate Cache
+Cache --> FanoutRepository: Return <sleep_record_ids> [list<int>]
+deactivate Cache
+FanoutRepository --> Usecase: Return <sleep_record_ids> [list<int>]
+deactivate FanoutRepository
+
 
 @enduml
