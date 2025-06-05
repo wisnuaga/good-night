@@ -1,4 +1,11 @@
 @startuml ClockInFlow
 title Clock In Flow - Sequence Diagram
 
+' Define actors and components
+actor User
+participant "SleepRecordController" as Controller
+participant "SleepRecordUsecase::ClockIn" as Usecase
+participant "SleepRecord Repository" as Repository
+database "PostgreSQL" as DB
+
 @enduml
