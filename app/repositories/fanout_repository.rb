@@ -44,8 +44,8 @@ class FanoutRepository < Repository
 
   def trim_feed(user_id)
     key = feed_key(user_id)
-    # Keep only the top FEED_LIST_LIMIT items, remove older ones
-    $redis.zremrangebyrank(key, 0, -(FEED_LIST_LIMIT + 1))
+    # Keep only the top FANOUT_LIMIT items, remove older ones
+    $redis.zremrangebyrank(key, 0, -(FANOUT_LIMIT + 1))
     $redis.expire(key, FEED_TTL_SECONDS)
   end
 
