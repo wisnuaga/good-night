@@ -5,8 +5,8 @@ title Clock Out Flow - Sequence Diagram
 actor User
 participant "SleepRecordController" as Controller
 participant "SleepRecordUsecase::ClockOut" as Usecase
-participant "Follow Repository" as FollowRepository
 participant "SleepRecord Repository" as SleepRecordRepository
+participant "Follow Repository" as FollowRepository
 participant "SleepRecordFanoutJob" as Job
 database "PostgreSQL" as DB
 
@@ -42,6 +42,15 @@ deactivate DB
 SleepRecordRepository --> Usecase: Return <current_session> OR null [sleep_record object]
 deactivate SleepRecordRepository
 
+Usecase --> FollowRepository: list_follower_ids(user_id: <user>.id, limit: Repository::FANOUT_LIMIT + 1)
+activate FollowRepository
+FollowRepository --> DB: SELECT followee_id FROM follows \nWHERE user_id = <user>.id LIMIT <Repository::FANOUT_LIMIT + 1>
+activate DB
+DB --> FollowRepository: Return <follower_ids> [list<int>]
+deactivate DB
+FollowRepository --> Usecase: Return <follower_ids> [list<int>]
+deactivate FollowRepository
+
 alt Current Session doesn't Exist
     Usecase --> Usecase: error: <current_session> doesn't exist
     Usecase --> Controller: error: "No active sleep session found"
@@ -57,7 +66,7 @@ end note
 DB --> Usecase: Return true OR false [boolean]
 deactivate DB
 
-alt True AND Count of followers <= LIMIT
+alt True AND Count of followers <= Repository::FANOUT_LIMIT
     Usecase -> Job: perform_later(<current_session>.id, <follower_ids>)
 end
 
