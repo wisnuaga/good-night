@@ -5,6 +5,7 @@ title Sleep Record List - Sequence Diagram
 actor User
 participant "SleepRecordController" as Controller
 participant "SleepRecordUsecase::List" as Usecase
+participant "Fanout Repository" as FanoutRepository
 participant "SleepRecord Repository" as SleepRecordRepository
 participant "RepairSleepRecordFanoutJob" as Job
 database "PostgreSQL" as DB
