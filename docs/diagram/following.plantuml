@@ -1,0 +1,83 @@
+@startuml Following
+title Follow User Flow - Sequence Diagram
+
+/' Define actors and components '/
+actor User
+participant "FollowsController" as Controller
+participant "FollowUsecase::Follow" as Usecase
+participant "User Repository" as UserRepository
+participant "Follow Repository" as FollowRepository
+database "PostgreSQL" as DB
+
+/' Temporary auth via X-User-Id header (for fast development, to be replaced later) '/
+group Temporary Authentication (Fast Dev Mode)
+    User -> Controller: POST /users/:id/following\nHeader: X-User-Id: <user_id>
+    activate Controller
+
+    Controller -> DB: SELECT * FROM users\nWHERE id = <user_id>
+    activate DB
+    DB --> Controller: Return user object / null
+    deactivate DB
+
+    alt User object is null
+        Controller --> Controller: Return error: User not found
+        Controller --> User: HTTP 404 Not Found\n"User not found"
+    end
+end group
+
+/' Check: Cannot follow yourself '/
+alt user_id == followee_id
+    Controller --> Controller: Return error: Cannot follow yourself
+    Controller --> User: HTTP 400 Bad Request\n"Cannot follow yourself"
+end
+
+/' Controller delegates to usecase with current user and followee_id '/
+Controller -> Usecase: follow(user, followee_id)
+activate Usecase
+
+/' Usecase queries followee existence '/
+Usecase -> UserRepository: find_by_id(followee_id)
+activate UserRepository
+UserRepository -> DB: SELECT * FROM users\nWHERE id = <followee_id>
+activate DB
+DB --> UserRepository: Return followee object
+deactivate DB
+UserRepository --> Usecase: Return followee object
+deactivate UserRepository
+
+/' Usecase checks if follow relation already exists '/
+Usecase -> FollowRepository: exist?(follower: user, followee: followee)
+activate FollowRepository
+FollowRepository -> DB: SELECT 1 AS one FROM follows\nWHERE follower_id = <user_id>\nAND followee_id = <followee_id>\nLIMIT 1
+activate DB
+DB --> FollowRepository: true / false
+deactivate DB
+FollowRepository --> Usecase: existence boolean
+deactivate FollowRepository
+
+/' If follow already exists, return error '/
+alt Already Exists
+    Usecase --> Usecase: Return error: Already following this user
+    Usecase --> Controller: Return error: Already following this user
+    Controller --> User: HTTP 400 Bad Request\n"Already following this user"
+end
+
+/' Branch: create new follow record if not already exists '/
+Usecase -> FollowRepository: create(follower: user, followee: followee)
+activate FollowRepository
+FollowRepository -> DB: INSERT INTO follows (follower_id, followee_id, created_at)\nVALUES (<user_id>, <followee_id>, CURRENT_TIMESTAMP)
+activate DB
+DB --> FollowRepository: created follow record
+deactivate DB
+FollowRepository --> Usecase: follow object
+deactivate FollowRepository
+
+/' Usecase returns result to controller '/
+Usecase --> Controller: Return success or error
+deactivate Usecase
+
+/' Final HTTP response to user '/
+Controller --> User: HTTP 200 OK / 500 Internal Server Error\n"Follow created successfully" / "Failed to create follow"
+deactivate Controller
+
+@enduml
