@@ -40,6 +40,7 @@ note right of Job
     followee_cursor = nil
     first = true
     followee_limit = 10
+    sleep_time = 0.05
 end note
 
 loop While [followee_cursor] not NULL OR First Loop
@@ -65,7 +66,7 @@ loop While [followee_cursor] not NULL OR First Loop
         cursor_time = nil
     end note
 
-    loop While sleep records exist
+    loop While [cursor_time] not NULL OR First Loop
         Job -> SleepRepository: list_by_user_ids(user_ids: [followee_ids], cursor: [cursor_time])
         activate SleepRepository
         SleepRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nORDER BY sleep_time DESC LIMIT [default(50)]
@@ -103,13 +104,13 @@ loop While [followee_cursor] not NULL OR First Loop
             deactivate FanoutRepository
         end
 
-        Job -> Job: sleep(sleep_time)
+        Job -> Job: sleep([sleep_time])
     end
 
     note right of Job
         Update followee_cursor = [next_cursor]
     end note
-    Job -> Job: sleep(sleep_time)
+    Job -> Job: sleep([sleep_time])
 end
 
 Job -> Cache: DEL repair_lock:[user_id]
