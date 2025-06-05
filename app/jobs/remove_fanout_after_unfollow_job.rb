@@ -34,6 +34,8 @@ class RemoveFanoutAfterUnfollowJob < ApplicationJob
 
         # Move cursor to last record's sleep_time for next batch
         cursor_time = records.last&.sleep_time
+
+        break if cursor_time.nil?
       end
     rescue => e
       Rails.logger.error("[RemoveFanoutAfterUnfollowJob] Failed for user #{user_id} unfollowed #{unfollowed_user_id}: #{e.message}")
