@@ -1,6 +1,12 @@
 @startuml RepairSleepRecordFanoutJobFlow
 title Repair Sleep Record Fanout Job Flow
 
-
+actor "Async Job Trigger" as Trigger
+participant "RepairSleepRecordFanoutJob" as Job
+participant "FanoutRepository" as FanoutRepo
+participant "FollowRepository" as FollowRepository
+participant "SleepRecordRepository" as SleepRepo
+database "Redis" as Cache
+database "PostgreSQL" as DB
 
 @enduml
