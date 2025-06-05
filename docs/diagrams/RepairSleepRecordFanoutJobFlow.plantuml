@@ -3,10 +3,116 @@ title Repair Sleep Record Fanout Job Flow
 
 actor "Async Job Trigger" as Trigger
 participant "RepairSleepRecordFanoutJob" as Job
-participant "FanoutRepository" as FanoutRepo
+participant "FanoutRepository" as FanoutRepository
 participant "FollowRepository" as FollowRepository
-participant "SleepRecordRepository" as SleepRepo
+participant "SleepRecordRepository" as SleepRepository
 database "Redis" as Cache
 database "PostgreSQL" as DB
+
+Trigger -> Job: perform(user_id)
+activate Job
+
+Job -> Cache: SET repair_lock:[user_id] NX EX 60
+activate Cache
+Cache --> Job: Return true OR false
+note right of Job
+    true -> Successfully locked
+    false -> Already running
+end note
+deactivate Cache
+
+alt Not Locked
+    Job --> Trigger: Exit early
+    deactivate Job
+end
+
+Job -> FanoutRepository: list_fanout([user_id])
+activate FanoutRepository
+FanoutRepository --> Cache: ZREVRANGE fanout:[user_id] 0 (FEED_LIST_LIMIT - 1)
+activate Cache
+Cache --> FanoutRepository: Return [existing_ids]
+deactivate Cache
+FanoutRepository --> Job: Return [existing_ids]
+deactivate FanoutRepository
+
+note right of Job
+    Initialize:
+    followee_cursor = nil
+    first = true
+    followee_limit = 10
+end note
+
+loop While [followee_cursor] not NULL OR First Loop
+    Job -> FollowRepository: list_followee_ids_batch(\n\tuser_id: [user_id], \n\tcursor: [followee_cursor], \n\tlimit: [followee_limit]\n)
+    activate FollowRepository
+    FollowRepository --> DB: SELECT followee_id FROM follows \nWHERE follower_id = [user_id] \n\tAND id > [cursor] \nORDER BY id LIMIT [limit]
+    activate DB
+    DB --> FollowRepository: Return [followee_ids]
+    deactivate DB
+    note right of FollowRepository
+        Calculate next cursor:\nnext_cursor = follows.last&.id
+    end note
+    FollowRepository --> Job: Return [followee_ids], [next_cursor]
+    deactivate FollowRepository
+
+    alt First == true
+        Job -> Job: followee_ids << user_id\nfirst = false
+    end
+
+    note right of Job
+        Initialize:
+        correct_records = []
+        cursor_time = nil
+    end note
+
+    loop While sleep records exist
+        Job -> SleepRepository: list_by_user_ids(user_ids: [followee_ids], cursor: [cursor_time])
+        activate SleepRepository
+        SleepRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nORDER BY sleep_time DESC LIMIT [default(50)]
+        activate DB
+        DB --> SleepRepository: Return [batch_records]
+        deactivate DB
+        SleepRepository --> Job: Return [batch_records]
+        deactivate SleepRepository
+
+        note right of Job
+            correct_records += batch_records (remove duplicates by ID)
+            cursor_time = batch_records.last&.sleep_time
+            missing_records = correct_records - existing_ids
+        end note
+
+        loop For each missing_record
+            Job -> FanoutRepository: add_to_feed([user_id], [record])
+            activate FanoutRepository
+
+            FanoutRepository -> Cache: ZADD fanout:[user_id] ([record].sleep_time, [record].id)
+            activate Cache
+            Cache --> FanoutRepository: Return 1 if added, 0 if already exists
+            deactivate Cache
+
+            FanoutRepository -> Cache: ZREMRANGEBYRANK fanout:[user_id] 0 -(FANOUT_LIMIT + 1)
+            activate Cache
+            Cache --> FanoutRepository: Return count of removed items
+            deactivate Cache
+
+            FanoutRepository -> Cache: EXPIRE fanout:[user_id] FEED_TTL_SECONDS
+            activate Cache
+            Cache --> FanoutRepository: Return true if successful
+            deactivate Cache
+
+            deactivate FanoutRepository
+        end
+
+        Job -> Job: sleep(sleep_time)
+    end
+
+    note right of Job
+        Update followee_cursor = [next_cursor]
+    end note
+    Job -> Job: sleep(sleep_time)
+end
+
+Job -> Cache: DEL repair_lock:[user_id]
+deactivate Job
 
 @enduml
