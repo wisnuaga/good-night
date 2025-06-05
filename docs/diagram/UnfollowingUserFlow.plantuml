@@ -1,5 +1,5 @@
 @startuml UnfollowingUserFlow
-title Unfollowing User Flow - Sequence Diagram
+title Unfollowing User Flow
 
 ' Define actors and components
 actor User
@@ -13,44 +13,44 @@ database "PostgreSQL" as DB
 User -> Controller: DELETE /users/:id/following
 activate Controller
 
-Controller -> Usecase: unfollow(<current_user>, followee_id)
+Controller -> Usecase: new(user: [current_user], followee_id: params[:id].to_i).call
 activate Usecase
 
-Usecase -> UserRepository: find_by_id(followee_id)
+Usecase -> UserRepository: find_by_id([followee_id])
 activate UserRepository
-UserRepository -> DB: SELECT * FROM users\nWHERE id = <followee_id>
+UserRepository -> DB: SELECT * FROM users\nWHERE id = [followee_id]
 activate DB
-DB --> UserRepository: Return <followee> OR null [user object]
+DB --> UserRepository: Return [followee]
 deactivate DB
-UserRepository --> Usecase: Return <followee> OR null [user object]
+UserRepository --> Usecase: Return [followee]
 deactivate UserRepository
 
-Usecase -> FollowRepository: find_by_follower_and_followee(follower: <current_user>, followee: <followee>)
+Usecase -> FollowRepository: find_by_follower_and_followee(follower: [user], followee: [followee])
 activate FollowRepository
-FollowRepository -> DB: SELECT * FROM follows\nWHERE follower_id = <current_user.id>\nAND followee_id = <followee.id>\nLIMIT 1
+FollowRepository -> DB: SELECT * FROM follows\nWHERE follower_id = [user].id\nAND followee_id = [followee].id\nLIMIT 1
 activate DB
-DB --> FollowRepository: Return <current_follow> OR null [follow object]
+DB --> FollowRepository: Return [current_follow]
 deactivate DB
-FollowRepository --> Usecase: Return <current_follow> OR null [follow object]
+FollowRepository --> Usecase: Return [current_follow]
 deactivate FollowRepository
 
-alt Not Exists
-    Usecase --> Usecase: error: "<current_follow> is not exists"
+alt [current_follow] not exists
+    Usecase --> Usecase: error: "[current_follow] is nil"
     Usecase --> Controller: error: "Not following this user"
     Controller --> User: HTTP 400 Bad Request\n"Not following this user"
 end
 
-Usecase -> FollowRepository: <current_follow>.destroy!
+Usecase -> FollowRepository: [current_follow].destroy!
 activate FollowRepository
-FollowRepository -> DB: DELETE FROM follows WHERE id = <current_follow.id> LIMIT 1;
+FollowRepository -> DB: DELETE FROM follows WHERE id = [current_follow].id LIMIT 1;
 activate DB
-DB --> FollowRepository: Return true OR false [boolean]
+DB --> FollowRepository: Return true OR false
 deactivate DB
-FollowRepository --> Usecase: Return true OR false [boolean]
+FollowRepository --> Usecase: Return true OR false
 deactivate FollowRepository
 
 alt True
-    Usecase -> Job: perform_later(<current_user.id>, <followee.id>)
+    Usecase -> Job: perform_later([user].id, [followee].id)
     note right of Job
       Background job will run after 1 hour\n(set(wait: 1.hour))
     end note

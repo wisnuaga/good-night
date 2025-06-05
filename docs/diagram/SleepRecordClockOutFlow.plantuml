@@ -1,5 +1,5 @@
 @startuml SleepRecordClockOutFlow
-title Sleep Record Clock Out Flow - Sequence Diagram
+title Sleep Record Clock Out Flow
 
 ' Define actors and components
 actor User
@@ -13,51 +13,51 @@ database "PostgreSQL" as DB
 User -> Controller: PUT /sleep_records/clock_out
 activate Controller
 
-Controller -> Usecase: clock_out(user: <current_user>, clock_out: Time.current)
+Controller -> Usecase: new(user: [current_user], clock_out: Time.current).call
 activate Usecase
 
-Usecase --> SleepRecordRepository: find_active_by_user(<user>.id)
+Usecase --> SleepRecordRepository: find_active_by_user([user].id)
 activate SleepRecordRepository
-SleepRecordRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id = <user>.id AND clock_out IS NULL \nLIMIT 1
+SleepRecordRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id = [user].id AND clock_out IS NULL \nLIMIT 1
 activate DB
-DB --> SleepRecordRepository: Return <current_session> OR null [sleep_record object]
+DB --> SleepRecordRepository: Return [record]
 deactivate DB
-SleepRecordRepository --> Usecase: Return <current_session> OR null [sleep_record object]
+SleepRecordRepository --> Usecase: Return [record]
 deactivate SleepRecordRepository
 
-Usecase --> FollowRepository: list_follower_ids(user_id: <user>.id, limit: Repository::FANOUT_LIMIT + 1)
+Usecase --> FollowRepository: list_follower_ids(user_id: [user].id, limit: (Repository::FANOUT_LIMIT + 1))
 activate FollowRepository
-FollowRepository --> DB: SELECT followee_id FROM follows \nWHERE user_id = <user>.id LIMIT <Repository::FANOUT_LIMIT + 1>
+FollowRepository --> DB: SELECT follower_id FROM follows \nWHERE followee_id = [user].id ORDER BY id LIMIT Repository::FANOUT_LIMIT + 1
 activate DB
-DB --> FollowRepository: Return <follower_ids> [list<int>]
+DB --> FollowRepository: Return [follower_ids]
 deactivate DB
-FollowRepository --> Usecase: Return <follower_ids> [list<int>]
+FollowRepository --> Usecase: Return [follower_ids]
 deactivate FollowRepository
 
-alt Current Session doesn't Exist
-    Usecase --> Usecase: error: <current_session> doesn't exist
+alt Current Session doesn't exist
+    Usecase --> Usecase: error: [record] doesn't exist
     Usecase --> Controller: error: "No active sleep session found"
     Controller --> User: HTTP 400 Bad Request\n"No active sleep session found"
 end
 
-Usecase --> DB: UPDATE sleep_records\nSET clock_out = <clock_out>,\nsleep_time = <sleep_time>\nWHERE id = <current_session>.id
+Usecase --> DB: UPDATE sleep_records\nSET clock_out = [clock_out],\nsleep_time = [sleep_time]\nWHERE id = [record].id
 activate DB
 note right of DB
   Before saving, model calculates:\n
   sleep_time = clock_out - clock_in
 end note
-DB --> Usecase: Return true OR false [boolean]
+DB --> Usecase: Return true OR false
 deactivate DB
 
-alt True AND Count of followers <= Repository::FANOUT_LIMIT
-    Usecase -> Job: perform_later(<current_session>.id, <follower_ids>)
+alt True AND len([follower_ids]) <= Repository::FANOUT_LIMIT
+    Usecase -> Job: perform_later([record].id, [follower_ids])
 end
 
 Usecase --> Controller: Return success or failure
 deactivate Usecase
 
 alt Success
-    Controller --> User: HTTP 200 OK\n"<current_session>"
+    Controller --> User: HTTP 200 OK\n"[record]"
 else Failure
     Controller --> User: HTTP 500 Internal Server Error\n"Failed to clock out"
 end

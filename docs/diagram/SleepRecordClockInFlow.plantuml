@@ -1,5 +1,5 @@
 @startuml SleepRecordClockInFlow
-title Sleep Record Clock In Flow - Sequence Diagram
+title Sleep Record Clock In Flow
 
 ' Define actors and components
 actor User
@@ -11,37 +11,37 @@ database "PostgreSQL" as DB
 User -> Controller: POST /sleep_records/clock_in
 activate Controller
 
-Controller -> Usecase: clock_in(user: <current_user>, clock_in: Time.current)
+Controller -> Usecase: new(user: [current_user], clock_in: Time.current).call
 activate Usecase
 
-Usecase --> Repository: find_active_by_user(<user>.id)
+Usecase --> Repository: find_active_by_user([user].id)
 activate Repository
-Repository --> DB: SELECT * FROM sleep_records \nWHERE user_id = <user>.id AND clock_out IS NULL \nLIMIT 1
+Repository --> DB: SELECT * FROM sleep_records \nWHERE user_id = [user].id AND clock_out IS NULL \nLIMIT 1
 activate DB
-DB --> Repository: Return <current_session> OR null [sleep_record object]
+DB --> Repository: Return [record]
 deactivate DB
-Repository --> Usecase: Return <current_session> OR null [sleep_record object]
+Repository --> Usecase: Return [record]
 deactivate Repository
 
 alt Current Session Exists
-    Usecase --> Usecase: error: <current_session> existed
+    Usecase --> Usecase: error: [record] is already exists
     Usecase --> Controller: error: "You already have an active sleep session"
     Controller --> User: HTTP 400 Bad Request\n"You already have an active sleep session"
 end
 
-Usecase --> Repository: create(user_id: <user>.id, clock_in: <clock_in>)
+Usecase --> Repository: create(user_id: [user].id, clock_in: [clock_in])
 activate Repository
-Repository --> DB: INSERT INTO sleep_records (user_id, clock_in)\nVALUES (<user>.id, <clock_in>)
+Repository --> DB: INSERT INTO sleep_records (user_id, clock_in)\nVALUES ([user].id, [clock_in])
 activate DB
-DB --> Repository: Return <new_session> or NULL [sleep_record object]
+DB --> Repository: Return [new_record]
 deactivate DB
-Repository --> Usecase: Return <new_session> or NULL [sleep_record object]
+Repository --> Usecase: Return [new_record]
 deactivate Repository
 Usecase --> Controller: Return success or failure
 deactivate Usecase
 
 alt Success    
-    Controller --> User: HTTP 201 OK\n"<new_session>"
+    Controller --> User: HTTP 201 OK\n"[new_record]"
 else Failure
     Controller --> User: HTTP 500 Internal Server Error\n"Failed to create sleep record"
 end

@@ -1,5 +1,5 @@
-@startuml SleepRecordList
-title Sleep Record List - Sequence Diagram
+@startuml SleepRecordListFlow
+title Sleep Record List Flow
 
 actor User
 participant "SleepRecordController" as Controller
@@ -15,7 +15,7 @@ database "PostgreSQL" as DB
 User -> Controller: GET /sleep_records
 activate Controller
 
-Controller -> Usecase: SleepRecordUsecase::List.new(user: [current_user])\n.call(limit: [limit], cursor: [cursor])
+Controller -> Usecase: new(user: [current_user])\n.call(limit: params[:limit], cursor: params[:cursor])
 activate Usecase
 
 ' Sort records
@@ -26,16 +26,16 @@ end note
 
 Usecase --> FanoutRepository: list_fanout(user_id: [user].id, cursor: [decoded_cursor], limit: [limit])
 activate FanoutRepository
-FanoutRepository --> Cache: ZREVRANGEBYSCORE fanout:[user_id] "([decoded_cursor]" "-inf"\nLIMIT 0 [limit])
+FanoutRepository --> Cache: ZREVRANGEBYSCORE fanout:[user].id "([decoded_cursor]" "-inf"\nLIMIT 0 [limit])
 activate Cache
 Cache --> FanoutRepository: Return [record_ids]
 deactivate Cache
 FanoutRepository --> Usecase: Return [record_ids]
 deactivate FanoutRepository
 
-Usecase --> FollowRepository: list_follower_ids(user_id: [user].id, limit: Repository::FANOUT_LIMIT + 1)
+Usecase --> FollowRepository: list_followee_ids(user_id: [user].id, limit: Repository::FANOUT_LIMIT + 1)
 activate FollowRepository
-FollowRepository --> DB: SELECT followee_id FROM follows \nWHERE user_id = [user].id LIMIT Repository::FANOUT_LIMIT + 1
+FollowRepository --> DB: SELECT followee_id FROM follows \nWHERE follower_id = [user].id ORDER BY id LIMIT Repository::FANOUT_LIMIT + 1
 activate DB
 DB --> FollowRepository: Return [followee_ids]
 deactivate DB
@@ -72,7 +72,7 @@ alt [record_ids] is not empty
     ' Check record staleness
     Usecase --> SleepRecordRepository: count_by_user_ids(user_ids: [followee_ids], cursor: [decoded_cursor], limit: [limit])
     activate SleepRecordRepository
-    SleepRecordRepository --> DB: SELECT COUNT(*) FROM sleep_records \nWHERE user_id IN ([user_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nLIMIT [limit] 
+    SleepRecordRepository --> DB: SELECT COUNT(*) FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nORDER BY sleep_time DESC LIMIT [limit] 
     activate DB
     DB --> SleepRecordRepository: Return [total]
     deactivate DB
@@ -90,7 +90,7 @@ alt [record_ids] is not empty
 else
     Usecase --> SleepRecordRepository: list_by_user_ids(user_ids: [followee_ids], cursor: [decoded_cursor], limit: [limit])
     activate SleepRecordRepository
-    SleepRecordRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nLIMIT [limit] 
+    SleepRecordRepository --> DB: SELECT * FROM sleep_records \nWHERE user_id IN ([followee_ids]) \n\tAND clock_in >= [feed_since_limit] \n\tAND sleep_time IS NOT NULL \n\tAND sleep_time < [decoded_cursor] \nORDER BY sleep_time DESC LIMIT [limit] 
     activate DB
     DB --> SleepRecordRepository: Return [records]
     deactivate DB
