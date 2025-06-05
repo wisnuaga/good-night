@@ -72,7 +72,7 @@ RSpec.describe FanoutRepository do
 
   describe '#trim_feed' do
     it 'trims the sorted set and sets an expiry' do
-      expect(redis).to receive(:zremrangebyrank).with(feed_key, 0, -(Repository::FEED_LIST_LIMIT + 1))
+      expect(redis).to receive(:zremrangebyrank).with(feed_key, 0, -(Repository::FANOUT_LIMIT + 1))
       expect(redis).to receive(:expire).with(feed_key, Repository::FEED_TTL_SECONDS)
 
       repo.trim_feed(user_id)
