@@ -9,4 +9,24 @@ participant "Follow Repository" as FollowRepository
 participant "SleepRecord Repository" as SleepRecordRepository
 database "PostgreSQL" as DB
 
+' Temporary auth via X-User-Id header (for fast development, to be replaced later)
+group Temporary Authentication (Fast Dev Mode)
+    User -> Controller: PUT /sleep_records/clock_out\nHeader: X-User-Id: <user_id>
+    activate Controller
+
+    note right of Controller
+      X-User-Id is temporary. To be replaced by JWT auth later.
+    end note
+
+    Controller -> DB: SELECT * FROM users\nWHERE id = <user_id> LIMIT 1;
+    activate DB
+    DB --> Controller: Return <current_user> OR null [user object]
+    deactivate DB
+
+    alt User object is null
+        Controller --> Controller: error: "<current_user> is null"
+        Controller --> User: HTTP 404 Not Found\n"User not found"
+    end
+end group
+
 @enduml
