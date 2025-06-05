@@ -28,6 +28,7 @@ group Temporary Authentication (Fast Dev Mode)
     end
 end group
 
-
+Controller -> Usecase: clock_in(<current_user>)
+activate Usecase
 
 @enduml
