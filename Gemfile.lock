@@ -151,7 +151,7 @@ GEM
     matrix (0.4.2)
     mini_mime (1.1.5)
     minitest (5.25.5)
-    mock_redis (0.50.0)
+    mock_redis (0.52.0)
       redis (~> 5)
     msgpack (1.8.0)
     net-imap (0.5.8)
@@ -240,7 +240,7 @@ GEM
       psych (>= 4.0.0)
     redis (5.4.0)
       redis-client (>= 0.22.0)
-    redis-client (0.24.0)
+    redis-client (0.25.2)
       connection_pool
     redis-namespace (1.11.0)
       redis (>= 4)
